@@ -1,1935 +1,1425 @@
 ﻿<!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>3D Конструктор торта</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,700;1,700&family=Caveat:wght@700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --pink: #ff519f;
-            --pink-dark: #c0286e;
-            --pink-soft: #ffe4ef;
-            --ink: #221220;
-            --ink-soft: #8a6b78;
-            --line: #f0e4e8;
-            --bg: #fdf6f0;
-            --card: #ffffff;
-            --radius: 22px;
-            --shadow-sm: 0 4px 16px rgba(200, 60, 120, 0.06);
-            --shadow: 0 12px 40px rgba(200, 60, 120, 0.10);
-        }
-
-        * {
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        html, body {
-            margin: 0;
-            height: 100%;
-            font-family: 'Manrope', system-ui, sans-serif;
-            background: var(--bg);
-            color: var(--ink);
-            overflow: hidden;
-            -webkit-font-smoothing: antialiased;
-        }
-
-        #app {
-            display: flex;
-            height: 100vh;
-            width: 100vw;
-        }
-
-        /* ===== 3D ===== */
-        #canvas-container {
-            flex: 1 1 50%;
-            position: relative;
-            background: radial-gradient(ellipse at 50% 30%, #fff8fb 0%, #fdf6f0 45%, #f5e7ee 100%);
-        }
-
-            #canvas-container::before {
-                content: '';
-                position: absolute;
-                inset: 0;
-                background-image: radial-gradient(circle at 20% 20%, rgba(255,179,209,0.15) 0%, transparent 40%), radial-gradient(circle at 80% 70%, rgba(201,160,220,0.12) 0%, transparent 40%);
-                pointer-events: none;
-            }
-
-            #canvas-container canvas {
-                display: block;
-                position: relative;
-                z-index: 1;
-            }
-
-        #badge3d {
-            position: absolute;
-            top: 24px;
-            left: 24px;
-            z-index: 3;
-            padding: 9px 18px;
-            border-radius: 999px;
-            background: rgba(255,255,255,0.7);
-            backdrop-filter: blur(14px) saturate(1.5);
-            -webkit-backdrop-filter: blur(14px) saturate(1.5);
-            font-size: 12px;
-            font-weight: 700;
-            color: var(--pink-dark);
-            box-shadow: var(--shadow-sm), inset 0 0 0 1px rgba(255,255,255,0.6);
-        }
-
-            #badge3d span {
-                display: inline-block;
-                width: 8px;
-                height: 8px;
-                border-radius: 50%;
-                background: var(--pink);
-                margin-right: 7px;
-                vertical-align: middle;
-                animation: pulse 2s infinite;
-            }
-
-        @keyframes pulse {
-            0% {
-                box-shadow: 0 0 0 0 rgba(255,81,159,0.6);
-            }
-
-            70% {
-                box-shadow: 0 0 0 10px rgba(255,81,159,0);
-            }
-
-            100% {
-                box-shadow: 0 0 0 0 rgba(255,81,159,0);
-            }
-        }
-
-        /* ===== ПАНЕЛЬ ===== */
-        #panel {
-            flex: 1 1 50%;
-            display: flex;
-            flex-direction: column;
-            background: var(--card);
-            box-shadow: -30px 0 80px rgba(200,60,120,0.08);
-            overflow: hidden;
-            position: relative;
-        }
-
-        #stepper {
-            padding: 26px 36px 16px;
-            flex-shrink: 0;
-            position: relative;
-        }
-
-        .steps-row {
-            display: flex;
-            gap: 8px;
-            position: relative;
-            z-index: 2;
-        }
-
-        .step-dot {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 7px;
-            cursor: pointer;
-        }
-
-            .step-dot .num {
-                width: 34px;
-                height: 34px;
-                border-radius: 50%;
-                background: #f7eef2;
-                color: var(--ink-soft);
-                display: grid;
-                place-items: center;
-                font-size: 13px;
-                font-weight: 800;
-                transition: all 0.35s cubic-bezier(.34,1.56,.64,1);
-            }
-
-            .step-dot.active .num {
-                background: linear-gradient(135deg, #ff6bb0, #ff3d94);
-                color: #fff;
-                box-shadow: 0 8px 24px rgba(255,81,159,0.45);
-                transform: scale(1.12);
-            }
-
-            .step-dot.done .num {
-                background: var(--pink-soft);
-                color: var(--pink-dark);
-            }
-
-            .step-dot .lbl {
-                font-size: 10.5px;
-                text-align: center;
-                line-height: 1.2;
-                color: var(--ink-soft);
-                font-weight: 700;
-            }
-
-            .step-dot.active .lbl {
-                color: var(--pink-dark);
-            }
-
-        #progress-bar {
-            position: absolute;
-            left: 48px;
-            right: 48px;
-            top: 43px;
-            height: 3px;
-            background: var(--line);
-            border-radius: 3px;
-            z-index: 1;
-            overflow: hidden;
-        }
-
-        #progress-fill {
-            height: 100%;
-            width: 0%;
-            background: linear-gradient(90deg, #ff6bb0, #ff3d94);
-            border-radius: 3px;
-            transition: width 0.5s cubic-bezier(.4,0,.2,1);
-            box-shadow: 0 0 12px rgba(255,81,159,0.6);
-        }
-
-        #pages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 8px 36px 20px;
-            scroll-behavior: smooth;
-        }
-
-            #pages::-webkit-scrollbar {
-                width: 8px;
-            }
-
-            #pages::-webkit-scrollbar-thumb {
-                background: var(--line);
-                border-radius: 4px;
-            }
-
-        .page {
-            display: none;
-        }
-
-            .page.active {
-                display: block;
-            }
-
-                .page.active > * {
-                    animation: riseIn 0.4s cubic-bezier(.4,0,.2,1) both;
-                }
-
-                    .page.active > *:nth-child(1) {
-                        animation-delay: 0.02s;
-                    }
-
-                    .page.active > *:nth-child(2) {
-                        animation-delay: 0.06s;
-                    }
-
-                    .page.active > *:nth-child(3) {
-                        animation-delay: 0.10s;
-                    }
-
-                    .page.active > *:nth-child(4) {
-                        animation-delay: 0.14s;
-                    }
-
-                    .page.active > *:nth-child(5) {
-                        animation-delay: 0.18s;
-                    }
-
-                    .page.active > *:nth-child(6) {
-                        animation-delay: 0.22s;
-                    }
-
-                    .page.active > *:nth-child(7) {
-                        animation-delay: 0.26s;
-                    }
-
-        @keyframes riseIn {
-            from {
-                opacity: 0;
-                transform: translateY(12px);
-            }
-
-            to {
-                opacity: 1;
-                transform: none;
-            }
-        }
-
-        .page h2 {
-            margin: 0 0 6px;
-            font-size: 24px;
-            font-weight: 800;
-            letter-spacing: -0.5px;
-        }
-
-        .page .subtitle {
-            margin: 0 0 20px;
-            font-size: 14px;
-            color: var(--ink-soft);
-            font-weight: 500;
-        }
-
-        .field {
-            margin-bottom: 20px;
-        }
-
-            .field > label {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-                font-size: 13px;
-                font-weight: 700;
-                margin-bottom: 10px;
-                color: var(--ink);
-            }
-
-            .field .help {
-                display: inline-grid;
-                place-items: center;
-                width: 15px;
-                height: 15px;
-                border-radius: 50%;
-                background: var(--line);
-                color: var(--ink-soft);
-                font-size: 9px;
-                font-weight: 800;
-                cursor: help;
-                transition: background 0.2s;
-            }
-
-                .field .help:hover {
-                    background: var(--pink-soft);
-                    color: var(--pink-dark);
-                }
-
-        .opt-grid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-
-        .opt {
-            padding: 10px 15px;
-            border: 1.5px solid var(--line);
-            border-radius: 999px;
-            background: #fff;
-            font-size: 13px;
-            cursor: pointer;
-            transition: all 0.22s cubic-bezier(.4,0,.2,1);
-            color: var(--ink);
-            user-select: none;
-            font-weight: 600;
-        }
-
-            .opt:hover {
-                border-color: #ffb3d1;
-                transform: translateY(-1px);
-            }
-
-            .opt.selected {
-                border-color: transparent;
-                background: linear-gradient(135deg, #ff6bb0, #ff3d94);
-                color: #fff;
-                font-weight: 700;
-                box-shadow: 0 6px 18px rgba(255,81,159,0.35);
-            }
-
-        /* Цвета */
-        .color-row {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            align-items: center;
-        }
-
-        .color-swatch {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            cursor: pointer;
-            border: 3px solid #fff;
-            box-shadow: 0 3px 10px rgba(0,0,0,0.10);
-            transition: transform 0.18s, box-shadow 0.18s;
-            position: relative;
-            animation: swatchIn 0.25s cubic-bezier(.34,1.56,.64,1);
-        }
-
-        @keyframes swatchIn {
-            from {
-                opacity: 0;
-                transform: scale(0.5);
-            }
-
-            to {
-                opacity: 1;
-                transform: scale(1);
-            }
-        }
-
-        .color-swatch:hover {
-            transform: scale(1.1);
-        }
-
-        .color-swatch.selected {
-            box-shadow: 0 0 0 3px var(--pink), 0 5px 14px rgba(255,81,159,0.3);
-            transform: scale(1.06);
-        }
-
-        .color-add {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            cursor: pointer;
-            border: 1.5px dashed #c8b0ba;
-            background: #fff;
-            color: var(--ink-soft);
-            font-size: 18px;
-            font-weight: 400;
-            display: grid;
-            place-items: center;
-            transition: all 0.2s;
-            position: relative;
-        }
-
-            .color-add:hover {
-                border-color: var(--pink);
-                color: var(--pink);
-                transform: scale(1.08);
-            }
-
-            .color-add input {
-                position: absolute;
-                inset: 0;
-                opacity: 0;
-                cursor: pointer;
-            }
-
-        .color-actions {
-            display: flex;
-            gap: 6px;
-            margin-top: 8px;
-        }
-
-            .color-actions .util-btn {
-                font-size: 11px;
-                padding: 6px 10px;
-            }
-
-        /* Вкусы */
-        .flavor-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 12px;
-        }
-
-        .flavor-card {
-            border: 1.5px solid var(--line);
-            border-radius: 18px;
-            overflow: hidden;
-            cursor: pointer;
-            transition: all 0.25s cubic-bezier(.4,0,.2,1);
-            background: #fff;
-            position: relative;
-        }
-
-            .flavor-card:hover {
-                border-color: #ffb3d1;
-                transform: translateY(-3px);
-                box-shadow: var(--shadow);
-            }
-
-            .flavor-card.selected {
-                border-color: transparent;
-                box-shadow: 0 0 0 3px var(--pink), var(--shadow);
-                transform: translateY(-3px);
-            }
-
-            .flavor-card .cut {
-                height: 84px;
-                position: relative;
-                overflow: hidden;
-            }
-
-                .flavor-card .cut::after {
-                    content: '';
-                    position: absolute;
-                    inset: 0;
-                    background: linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.06));
-                }
-
-            .flavor-card .name {
-                padding: 10px 10px 2px;
-                font-size: 13px;
-                font-weight: 800;
-                text-align: center;
-            }
-
-            .flavor-card .price {
-                font-size: 11px;
-                color: var(--ink-soft);
-                text-align: center;
-                padding-bottom: 10px;
-                font-weight: 700;
-            }
-
-            .flavor-card.selected .name {
-                color: var(--pink-dark);
-            }
-
-            .flavor-card .badge {
-                position: absolute;
-                top: 8px;
-                right: 8px;
-                z-index: 2;
-                width: 22px;
-                height: 22px;
-                border-radius: 50%;
-                background: var(--pink);
-                color: #fff;
-                display: grid;
-                place-items: center;
-                font-size: 12px;
-                font-weight: 800;
-                opacity: 0;
-                transform: scale(0.5);
-                transition: all 0.3s cubic-bezier(.34,1.56,.64,1);
-                box-shadow: 0 3px 10px rgba(255,81,159,0.5);
-            }
-
-            .flavor-card.selected .badge {
-                opacity: 1;
-                transform: scale(1);
-            }
-
-        .cut-snickers {
-            background: linear-gradient(180deg, rgba(255,255,255,0.4) 0%, transparent 30%), repeating-linear-gradient(180deg, #e8c78f 0 10px, #b5793a 10px 14px, #f4e3c3 14px 24px, #7a4a1e 24px 28px);
-        }
-
-        .cut-twochoc {
-            background: linear-gradient(180deg, rgba(255,255,255,0.25) 0%, transparent 30%), repeating-linear-gradient(180deg, #4a2a18 0 12px, #8b5a2b 12px 16px, #3a1e10 16px 26px, #6b3f1c 26px 30px);
-        }
-
-        .cut-cherry {
-            background: linear-gradient(180deg, rgba(255,255,255,0.4) 0%, transparent 30%), repeating-linear-gradient(180deg, #f6e2e6 0 12px, #b81f3e 12px 20px, #fff 20px 26px, #8b1a2b 26px 34px);
-        }
-
-        .cut-redvelvet {
-            background: linear-gradient(180deg, rgba(255,255,255,0.35) 0%, transparent 30%), repeating-linear-gradient(180deg, #8b1a2b 0 14px, #f5e6e8 14px 22px, #a0173a 22px 32px, #fff 32px 38px);
-        }
-
-        .cut-vanilla {
-            background: linear-gradient(180deg, rgba(255,255,255,0.4) 0%, transparent 30%), repeating-linear-gradient(180deg, #fbe8f0 0 12px, #f2d5e0 12px 20px, #fff 20px 26px, #e8a8c0 26px 34px);
-        }
-
-        /* Чекбоксы */
-        .check-list {
-            display: flex;
-            flex-direction: column;
-            gap: 9px;
-        }
-
-        .check-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 13px 16px;
-            border: 1.5px solid var(--line);
-            border-radius: 14px;
-            cursor: pointer;
-            transition: all 0.2s;
-            background: #fff;
-        }
-
-            .check-item:hover {
-                border-color: #ffb3d1;
-            }
-
-            .check-item.checked {
-                border-color: var(--pink);
-                background: linear-gradient(135deg, #fff5f9, #ffe9f2);
-            }
-
-            .check-item input {
-                accent-color: var(--pink);
-                width: 18px;
-                height: 18px;
-                cursor: pointer;
-            }
-
-            .check-item .txt {
-                flex: 1;
-                font-size: 13.5px;
-                font-weight: 700;
-            }
-
-            .check-item .extra {
-                font-size: 12px;
-                color: var(--pink-dark);
-                font-weight: 800;
-            }
-
-        .text-input {
-            width: 100%;
-            padding: 14px 16px;
-            border-radius: 14px;
-            border: 1.5px solid var(--line);
-            background: #fff;
-            font-family: inherit;
-            font-size: 15px;
-            font-weight: 700;
-            color: var(--ink);
-            outline: none;
-            transition: all 0.2s;
-        }
-
-            .text-input:focus {
-                border-color: var(--pink);
-                box-shadow: 0 0 0 4px var(--pink-soft);
-            }
-
-            .text-input::placeholder {
-                color: #c8b0ba;
-                font-weight: 500;
-            }
-
-        .hint {
-            font-size: 11.5px;
-            color: var(--ink-soft);
-            margin-top: 8px;
-            font-weight: 500;
-        }
-
-        .util-row {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            margin-bottom: 8px;
-        }
-
-        .util-btn {
-            padding: 8px 14px;
-            border-radius: 999px;
-            border: 1.5px solid var(--line);
-            background: #fff;
-            font-size: 12px;
-            font-weight: 700;
-            cursor: pointer;
-            color: var(--ink);
-            transition: all 0.2s;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-            .util-btn:hover {
-                border-color: var(--pink);
-                color: var(--pink-dark);
-            }
-
-            .util-btn.active {
-                background: var(--pink);
-                color: #fff;
-                border-color: var(--pink);
-            }
-
-        /* Итог */
-        .summary-card {
-            background: linear-gradient(180deg, #fffbfd, #fff);
-            border: 1.5px solid var(--line);
-            border-radius: 18px;
-            padding: 4px 18px;
-            margin-bottom: 18px;
-            box-shadow: var(--shadow-sm);
-        }
-
-        .summary-row {
-            display: flex;
-            justify-content: space-between;
-            gap: 12px;
-            align-items: center;
-            padding: 12px 0;
-            border-bottom: 1px dashed var(--line);
-            font-size: 13.5px;
-        }
-
-            .summary-row:last-child {
-                border-bottom: none;
-            }
-
-            .summary-row .k {
-                color: var(--ink-soft);
-                font-weight: 600;
-            }
-
-            .summary-row .v {
-                font-weight: 800;
-                text-align: right;
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                justify-content: flex-end;
-                flex-wrap: wrap;
-            }
-
-                .summary-row .v .dot {
-                    width: 16px;
-                    height: 16px;
-                    border-radius: 50%;
-                    border: 2px solid #fff;
-                    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-                    flex-shrink: 0;
-                }
-
-        .summary-total {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 20px 24px;
-            border-radius: 18px;
-            background: linear-gradient(135deg, #ff6bb0, #ff3d94);
-            box-shadow: 0 16px 40px rgba(255,81,159,0.35);
-            color: #fff;
-            margin-bottom: 14px;
-        }
-
-            .summary-total .lbl {
-                font-size: 14px;
-                font-weight: 700;
-                opacity: 0.9;
-            }
-
-            .summary-total .sum {
-                font-size: 30px;
-                font-weight: 800;
-                letter-spacing: -1px;
-            }
-
-        /* Футер */
-        #footer {
-            flex-shrink: 0;
-            padding: 18px 36px 24px;
-            border-top: 1px solid var(--line);
-            background: #fff;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        #current-price {
-            flex: 1 1 140px;
-            font-size: 12px;
-            color: var(--ink-soft);
-            font-weight: 700;
-        }
-
-            #current-price strong {
-                display: block;
-                font-size: 24px;
-                color: var(--pink-dark);
-                font-weight: 800;
-                letter-spacing: -0.6px;
-            }
-
-            #current-price.pulse strong {
-                animation: pricePulse 0.55s cubic-bezier(.34,1.56,.64,1);
-            }
-
-        @keyframes pricePulse {
-            0% {
-                transform: scale(1);
-            }
-
-            50% {
-                transform: scale(1.12);
-                color: var(--pink);
-            }
-
-            100% {
-                transform: scale(1);
-            }
-        }
-
-        .btn {
-            padding: 14px 22px;
-            border-radius: 999px;
-            border: none;
-            cursor: pointer;
-            font-family: inherit;
-            font-size: 14px;
-            font-weight: 800;
-            transition: all 0.22s;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .btn-prev {
-            background: #f7eef2;
-            color: var(--ink);
-        }
-
-            .btn-prev:hover:not(:disabled) {
-                background: #ebe0e5;
-            }
-
-            .btn-prev:disabled {
-                opacity: 0.4;
-                cursor: not-allowed;
-            }
-
-        .btn-next {
-            background: linear-gradient(135deg, #ff6bb0, #ff3d94);
-            color: #fff;
-            box-shadow: 0 10px 26px rgba(255,81,159,0.4);
-        }
-
-            .btn-next:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 14px 32px rgba(255,81,159,0.5);
-            }
-
-        .btn-util {
-            padding: 10px 12px;
-            background: #f7eef2;
-            color: var(--ink);
-            border-radius: 12px;
-            font-size: 16px;
-            line-height: 1;
-        }
-
-            .btn-util:hover {
-                background: var(--pink-soft);
-                color: var(--pink-dark);
-            }
-
-            .btn-util svg {
-                width: 18px;
-                height: 18px;
-                display: block;
-            }
-
-        @media (max-width: 900px) {
-            #app {
-                flex-direction: column;
-            }
-
-            #canvas-container {
-                flex: 0 0 36vh;
-            }
-
-            #panel {
-                flex: 1;
-            }
-
-            #pages {
-                padding: 8px 20px 16px;
-            }
-
-            #stepper {
-                padding: 18px 20px 12px;
-            }
-
-            #footer {
-                padding: 14px 20px 20px;
-            }
-
-            #progress-bar {
-                left: 34px;
-                right: 34px;
-                top: 35px;
-            }
-
-            .step-dot .lbl {
-                display: none;
-            }
-
-            .page h2 {
-                font-size: 20px;
-            }
-        }
-    </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Про торты — 3D Конструктор</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,700;1,700&family=Caveat:wght@700&display=swap" rel="stylesheet">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root {
+    --pink: #ff519f;
+    --pink-dark: #c0286e;
+    --pink-soft: #ffe4ef;
+    --ink: #221220;
+    --ink-soft: #8a6b78;
+    --line: #f0e4e8;
+    --bg: #fdf6f0;
+    --card: #ffffff;
+    --radius: 22px;
+    --shadow-sm: 0 4px 16px rgba(200, 60, 120, 0.06);
+    --shadow: 0 12px 40px rgba(200, 60, 120, 0.10);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; height: 100%;
+    font-family: 'Manrope', system-ui, sans-serif;
+    background: var(--bg); color: var(--ink);
+    overflow: hidden; -webkit-font-smoothing: antialiased;
+  }
+  #app { display: flex; height: 100vh; width: 100vw; }
+
+  #canvas-container {
+    flex: 1 1 50%; position: relative;
+    background: radial-gradient(ellipse at 50% 30%, #fff8fb 0%, #fdf6f0 45%, #f5e7ee 100%);
+  }
+  #canvas-container::before {
+    content: ''; position: absolute; inset: 0;
+    background-image:
+      radial-gradient(circle at 20% 20%, rgba(255,179,209,0.15) 0%, transparent 40%),
+      radial-gradient(circle at 80% 70%, rgba(201,160,220,0.12) 0%, transparent 40%);
+    pointer-events: none;
+  }
+  #canvas-container canvas { display: block; position: relative; z-index: 1; }
+  #badge3d {
+    position: absolute; top: 24px; left: 24px; z-index: 3;
+    padding: 9px 18px; border-radius: 999px;
+    background: rgba(255,255,255,0.7); backdrop-filter: blur(14px) saturate(1.5);
+    -webkit-backdrop-filter: blur(14px) saturate(1.5);
+    font-size: 12px; font-weight: 700; color: var(--pink-dark);
+    box-shadow: var(--shadow-sm), inset 0 0 0 1px rgba(255,255,255,0.6);
+  }
+  #badge3d span {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--pink); margin-right: 7px; vertical-align: middle;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(255,81,159,0.6); }
+    70% { box-shadow: 0 0 0 10px rgba(255,81,159,0); }
+    100% { box-shadow: 0 0 0 0 rgba(255,81,159,0); }
+  }
+
+  #panel {
+    flex: 1 1 50%; display: flex; flex-direction: column;
+    background: var(--card);
+    box-shadow: -30px 0 80px rgba(200,60,120,0.08);
+    overflow: hidden; position: relative;
+  }
+
+  #stepper { padding: 26px 36px 16px; flex-shrink: 0; position: relative; }
+  .steps-row { display: flex; gap: 8px; position: relative; z-index: 2; }
+  .step-dot {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 7px;
+    cursor: pointer;
+  }
+  .step-dot .num {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: #f7eef2; color: var(--ink-soft);
+    display: grid; place-items: center;
+    font-size: 13px; font-weight: 800;
+    transition: all 0.35s cubic-bezier(.34,1.56,.64,1);
+  }
+  .step-dot.active .num {
+    background: linear-gradient(135deg, #ff6bb0, #ff3d94);
+    color: #fff;
+    box-shadow: 0 8px 24px rgba(255,81,159,0.45);
+    transform: scale(1.12);
+  }
+  .step-dot.done .num { background: var(--pink-soft); color: var(--pink-dark); }
+  .step-dot .lbl {
+    font-size: 10.5px; text-align: center; line-height: 1.2;
+    color: var(--ink-soft); font-weight: 700;
+  }
+  .step-dot.active .lbl { color: var(--pink-dark); }
+  #progress-bar {
+    position: absolute; left: 48px; right: 48px; top: 43px; height: 3px;
+    background: var(--line); border-radius: 3px; z-index: 1; overflow: hidden;
+  }
+  #progress-fill {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, #ff6bb0, #ff3d94);
+    border-radius: 3px; transition: width 0.5s cubic-bezier(.4,0,.2,1);
+    box-shadow: 0 0 12px rgba(255,81,159,0.6);
+  }
+
+  #pages { flex: 1; overflow-y: auto; padding: 8px 36px 20px; scroll-behavior: smooth; }
+  #pages::-webkit-scrollbar { width: 8px; }
+  #pages::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+  .page { display: none; }
+  .page.active { display: block; }
+  .page.active > * { animation: riseIn 0.4s cubic-bezier(.4,0,.2,1) both; }
+  .page.active > *:nth-child(1) { animation-delay: 0.02s; }
+  .page.active > *:nth-child(2) { animation-delay: 0.06s; }
+  .page.active > *:nth-child(3) { animation-delay: 0.10s; }
+  .page.active > *:nth-child(4) { animation-delay: 0.14s; }
+  .page.active > *:nth-child(5) { animation-delay: 0.18s; }
+  .page.active > *:nth-child(6) { animation-delay: 0.22s; }
+  @keyframes riseIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: none; }
+  }
+  .page h2 { margin: 0 0 6px; font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
+  .page .subtitle { margin: 0 0 20px; font-size: 14px; color: var(--ink-soft); font-weight: 500; }
+
+  .field { margin-bottom: 20px; }
+  .field > label {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 13px; font-weight: 700; margin-bottom: 10px; color: var(--ink);
+  }
+
+  .opt-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .opt {
+    padding: 10px 15px; border: 1.5px solid var(--line); border-radius: 999px;
+    background: #fff; font-size: 13px; cursor: pointer;
+    transition: all 0.22s cubic-bezier(.4,0,.2,1);
+    color: var(--ink); user-select: none; font-weight: 600;
+  }
+  .opt:hover { border-color: #ffb3d1; transform: translateY(-1px); }
+  .opt.selected {
+    border-color: transparent;
+    background: linear-gradient(135deg, #ff6bb0, #ff3d94);
+    color: #fff; font-weight: 700;
+    box-shadow: 0 6px 18px rgba(255,81,159,0.35);
+  }
+
+  .color-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .color-swatch {
+    width: 36px; height: 36px; border-radius: 50%; cursor: pointer;
+    border: 3px solid #fff;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.10);
+    transition: transform 0.18s, box-shadow 0.18s; position: relative;
+    animation: swatchIn 0.25s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes swatchIn { from { opacity: 0; transform: scale(0.5); } to { opacity: 1; transform: scale(1); } }
+  .color-swatch:hover { transform: scale(1.1); }
+  .color-swatch.selected {
+    box-shadow: 0 0 0 3px var(--pink), 0 5px 14px rgba(255,81,159,0.3);
+    transform: scale(1.06);
+  }
+  .color-add {
+    width: 36px; height: 36px; border-radius: 50%; cursor: pointer;
+    border: 1.5px dashed #c8b0ba; background: #fff;
+    color: var(--ink-soft); font-size: 18px; font-weight: 400;
+    display: grid; place-items: center; transition: all 0.2s;
+    position: relative;
+  }
+  .color-add:hover { border-color: var(--pink); color: var(--pink); transform: scale(1.08); }
+  .color-add input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .color-actions { display: flex; gap: 6px; margin-top: 8px; }
+  .color-actions .util-btn { font-size: 11px; padding: 6px 10px; }
+
+  .flavor-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .flavor-card {
+    border: 1.5px solid var(--line); border-radius: 18px; overflow: hidden;
+    cursor: pointer; transition: all 0.25s cubic-bezier(.4,0,.2,1);
+    background: #fff; position: relative;
+  }
+  .flavor-card:hover { border-color: #ffb3d1; transform: translateY(-3px); box-shadow: var(--shadow); }
+  .flavor-card.selected { border-color: transparent; box-shadow: 0 0 0 3px var(--pink), var(--shadow); transform: translateY(-3px); }
+  .flavor-card .cut { height: 84px; position: relative; overflow: hidden; }
+  .flavor-card .cut::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.06));
+  }
+  .flavor-card .name { padding: 10px 10px 2px; font-size: 13px; font-weight: 800; text-align: center; }
+  .flavor-card .price { font-size: 11px; color: var(--ink-soft); text-align: center; padding-bottom: 10px; font-weight: 700; }
+  .flavor-card.selected .name { color: var(--pink-dark); }
+  .flavor-card .badge {
+    position: absolute; top: 8px; right: 8px; z-index: 2;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--pink); color: #fff;
+    display: grid; place-items: center; font-size: 12px; font-weight: 800;
+    opacity: 0; transform: scale(0.5);
+    transition: all 0.3s cubic-bezier(.34,1.56,.64,1);
+    box-shadow: 0 3px 10px rgba(255,81,159,0.5);
+  }
+  .flavor-card.selected .badge { opacity: 1; transform: scale(1); }
+
+  .cut-snickers {
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.4) 0%, transparent 30%),
+      repeating-linear-gradient(180deg, #e8c78f 0 10px, #b5793a 10px 14px, #f4e3c3 14px 24px, #7a4a1e 24px 28px);
+  }
+  .cut-twochoc {
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.25) 0%, transparent 30%),
+      repeating-linear-gradient(180deg, #4a2a18 0 12px, #8b5a2b 12px 16px, #3a1e10 16px 26px, #6b3f1c 26px 30px);
+  }
+  .cut-cherry {
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.4) 0%, transparent 30%),
+      repeating-linear-gradient(180deg, #f6e2e6 0 12px, #b81f3e 12px 20px, #fff 20px 26px, #8b1a2b 26px 34px);
+  }
+  .cut-redvelvet {
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.35) 0%, transparent 30%),
+      repeating-linear-gradient(180deg, #8b1a2b 0 14px, #f5e6e8 14px 22px, #a0173a 22px 32px, #fff 32px 38px);
+  }
+  .cut-vanilla {
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.4) 0%, transparent 30%),
+      repeating-linear-gradient(180deg, #fbe8f0 0 12px, #f2d5e0 12px 20px, #fff 20px 26px, #e8a8c0 26px 34px);
+  }
+
+  .check-list { display: flex; flex-direction: column; gap: 9px; }
+  .check-item {
+    display: flex; align-items: center; gap: 12px; padding: 13px 16px;
+    border: 1.5px solid var(--line); border-radius: 14px; cursor: pointer;
+    transition: all 0.2s; background: #fff;
+  }
+  .check-item:hover { border-color: #ffb3d1; }
+  .check-item.checked { border-color: var(--pink); background: linear-gradient(135deg, #fff5f9, #ffe9f2); }
+  .check-item input { accent-color: var(--pink); width: 18px; height: 18px; cursor: pointer; }
+  .check-item .txt { flex: 1; font-size: 13.5px; font-weight: 700; }
+  .check-item .extra { font-size: 12px; color: var(--pink-dark); font-weight: 800; }
+
+  .text-input {
+    width: 100%; padding: 14px 16px; border-radius: 14px;
+    border: 1.5px solid var(--line); background: #fff;
+    font-family: inherit; font-size: 15px; font-weight: 700; color: var(--ink);
+    outline: none; transition: all 0.2s;
+  }
+  .text-input:focus { border-color: var(--pink); box-shadow: 0 0 0 4px var(--pink-soft); }
+  .text-input::placeholder { color: #c8b0ba; font-weight: 500; }
+  .hint { font-size: 11.5px; color: var(--ink-soft); margin-top: 8px; font-weight: 500; }
+
+  .util-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  .util-btn {
+    padding: 8px 14px; border-radius: 999px; border: 1.5px solid var(--line);
+    background: #fff; font-size: 12px; font-weight: 700; cursor: pointer;
+    color: var(--ink); transition: all 0.2s; display: inline-flex; align-items: center; gap: 5px;
+  }
+  .util-btn:hover { border-color: var(--pink); color: var(--pink-dark); }
+  .util-btn.active { background: var(--pink); color: #fff; border-color: var(--pink); }
+
+  .summary-card {
+    background: linear-gradient(180deg, #fffbfd, #fff);
+    border: 1.5px solid var(--line); border-radius: 18px; padding: 4px 18px;
+    margin-bottom: 18px; box-shadow: var(--shadow-sm);
+  }
+  .summary-row {
+    display: flex; justify-content: space-between; gap: 12px; align-items: center;
+    padding: 12px 0; border-bottom: 1px dashed var(--line); font-size: 13.5px;
+  }
+  .summary-row:last-child { border-bottom: none; }
+  .summary-row .k { color: var(--ink-soft); font-weight: 600; }
+  .summary-row .v { font-weight: 800; text-align: right; display: flex; align-items: center; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+  .summary-row .v .dot {
+    width: 16px; height: 16px; border-radius: 50%; border: 2px solid #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2); flex-shrink: 0;
+  }
+  .summary-total {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 20px 24px; border-radius: 18px;
+    background: linear-gradient(135deg, #ff6bb0, #ff3d94);
+    box-shadow: 0 16px 40px rgba(255,81,159,0.35); color: #fff;
+    margin-bottom: 14px;
+  }
+  .summary-total .lbl { font-size: 14px; font-weight: 700; opacity: 0.9; }
+  .summary-total .sum { font-size: 30px; font-weight: 800; letter-spacing: -1px; }
+
+  #footer {
+    flex-shrink: 0; padding: 18px 36px 24px;
+    border-top: 1px solid var(--line); background: #fff;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  #current-price { flex: 1 1 140px; font-size: 12px; color: var(--ink-soft); font-weight: 700; }
+  #current-price strong {
+    display: block; font-size: 24px; color: var(--pink-dark);
+    font-weight: 800; letter-spacing: -0.6px;
+  }
+  #current-price.pulse strong { animation: pricePulse 0.55s cubic-bezier(.34,1.56,.64,1); }
+  @keyframes pricePulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.12); color: var(--pink); }
+    100% { transform: scale(1); }
+  }
+  .btn {
+    padding: 14px 22px; border-radius: 999px; border: none; cursor: pointer;
+    font-family: inherit; font-size: 14px; font-weight: 800; transition: all 0.22s;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn-prev { background: #f7eef2; color: var(--ink); }
+  .btn-prev:hover:not(:disabled) { background: #ebe0e5; }
+  .btn-prev:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-next {
+    background: linear-gradient(135deg, #ff6bb0, #ff3d94);
+    color: #fff; box-shadow: 0 10px 26px rgba(255,81,159,0.4);
+  }
+  .btn-next:hover { transform: translateY(-2px); box-shadow: 0 14px 32px rgba(255,81,159,0.5); }
+  .btn-util {
+    padding: 10px 12px; background: #f7eef2; color: var(--ink);
+    border-radius: 12px; font-size: 16px; line-height: 1;
+  }
+  .btn-util:hover { background: var(--pink-soft); color: var(--pink-dark); }
+  .btn-util svg { width: 18px; height: 18px; display: block; }
+
+  @media (max-width: 900px) {
+    #app { flex-direction: column; }
+    #canvas-container { flex: 0 0 36vh; }
+    #panel { flex: 1; }
+    #pages { padding: 8px 20px 16px; }
+    #stepper { padding: 18px 20px 12px; }
+    #footer { padding: 14px 20px 20px; }
+    #progress-bar { left: 34px; right: 34px; top: 35px; }
+    .step-dot .lbl { display: none; }
+    .page h2 { font-size: 20px; }
+  }
+</style>
 </head>
 <body>
-    <div id="app">
-        <div id="canvas-container">
-            <div id="badge3d"><span></span>Живой предпросмотр</div>
-        </div>
+<div id="app">
+  <div id="canvas-container">
+    <div id="badge3d"><span></span>Живой предпросмотр</div>
+  </div>
 
-        <div id="panel">
-            <div id="stepper">
-                <div id="progress-bar"><div id="progress-fill"></div></div>
-                <div class="steps-row">
-                    <div class="step-dot" data-step="0"><div class="num">1</div><div class="lbl">Форма</div></div>
-                    <div class="step-dot" data-step="1"><div class="num">2</div><div class="lbl">Вкус</div></div>
-                    <div class="step-dot" data-step="2"><div class="num">3</div><div class="lbl">Покрытие</div></div>
-                    <div class="step-dot" data-step="3"><div class="num">4</div><div class="lbl">Декор</div></div>
-                    <div class="step-dot" data-step="4"><div class="num">5</div><div class="lbl">Итог</div></div>
-                </div>
-            </div>
-
-            <div id="pages">
-                <!-- 1 -->
-                <div class="page active" data-page="0">
-                    <h2>Форма и вес</h2>
-                    <p class="subtitle">Количество ярусов и вес торта</p>
-                    <div class="field">
-                        <label>Количество ярусов</label>
-                        <div class="opt-grid" data-group="tiers">
-                            <div class="opt" data-value="1">1 ярус</div>
-                            <div class="opt selected" data-value="2">2 яруса</div>
-                            <div class="opt" data-value="3">3 яруса</div>
-                        </div>
-                    </div>
-                    <div class="field">
-                        <label>Вес</label>
-                        <div class="opt-grid" data-group="weight">
-                            <div class="opt" data-value="1">1 кг</div>
-                            <div class="opt selected" data-value="1.5">1.5 кг</div>
-                            <div class="opt" data-value="2">2 кг</div>
-                            <div class="opt" data-value="3">3 кг</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 2 -->
-                <div class="page" data-page="1">
-                    <h2>Вкус</h2>
-                    <p class="subtitle">Посмотрите разрез и выберите начинку</p>
-                    <div class="flavor-grid" data-group="flavor" id="flavorGrid"></div>
-                </div>
-
-                <!-- 3 -->
-                <div class="page" data-page="2">
-                    <h2>Покрытие и рюши</h2>
-                    <p class="subtitle">Цвета, форма рюш и стиль</p>
-
-                    <div class="field">
-                        <label>Быстрые палитры</label>
-                        <div class="util-row" id="paletteRow">
-                            <button class="util-btn active" data-palette="bright">✨ Яркие</button>
-                            <button class="util-btn" data-palette="pastel">🌸 Пастельные</button>
-                            <button class="util-btn" data-palette="creamy">🍰 Сливочные</button>
-                            <button class="util-btn" id="btnRandomAll">🎲 Случайно</button>
-                        </div>
-                    </div>
-
-                    <div class="field">
-                        <label>Цвет покрытия <span class="help" title="Основной цвет боковой поверхности торта">?</span></label>
-                        <div class="color-row" data-group="creamColor"></div>
-                        <div class="color-actions">
-                            <button class="util-btn" data-copy-to="creamColor" data-copy-from="creamColor" style="display:none"></button>
-                        </div>
-                    </div>
-
-                    <div class="field">
-                        <label>Цвет бортиков <span class="help" title="Кремовый бортик по верхнему краю каждого яруса">?</span></label>
-                        <div class="color-row" data-group="brimColor"></div>
-                        <div class="color-actions">
-                            <button class="util-btn" data-copy-to="brimColor" data-copy-from="creamColor">= покрытие</button>
-                        </div>
-                    </div>
-
-                    <div class="field">
-                        <label>Форма рюш <span class="help" title="Украшение по краю каждого яруса">?</span></label>
-                        <div class="opt-grid" data-group="ruffles">
-                            <div class="opt selected" data-value="none">Без рюш</div>
-                            <div class="opt" data-value="waves">Волны</div>
-                            <div class="opt" data-value="roses">Розочки</div>
-                            <div class="opt" data-value="drops">Капли</div>
-                            <div class="opt" data-value="stars">Звёздочки</div>
-                            <div class="opt" data-value="hearts">Сердечки</div>
-                        </div>
-                    </div>
-                    <div class="field" id="ruflesColorField" style="display:none">
-                        <label>Цвет рюш</label>
-                        <div class="color-row" data-group="rufflesColor"></div>
-                        <div class="color-actions">
-                            <button class="util-btn" data-copy-to="rufflesColor" data-copy-from="creamColor">= покрытие</button>
-                        </div>
-                    </div>
-                    <div class="field" id="ruflesSizeField" style="display:none">
-                        <label>Размер рюш</label>
-                        <div class="opt-grid" data-group="rufflesSize">
-                            <div class="opt selected" data-value="small">Мелкие</div>
-                            <div class="opt" data-value="medium">Средние</div>
-                            <div class="opt" data-value="large">Крупные</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 4 -->
-                <div class="page" data-page="3">
-                    <h2>Декор</h2>
-                    <p class="subtitle">Украшения, их цвета и надпись</p>
-
-                    <div class="field">
-                        <label>Добавить</label>
-                        <div class="check-list" data-group="decor">
-                            <label class="check-item"><input type="checkbox" data-value="sprinkles"><span class="txt">Посыпка</span><span class="extra">+120 ₽</span></label>
-                            <label class="check-item"><input type="checkbox" data-value="glitter"><span class="txt">Блёстки</span><span class="extra">+150 ₽</span></label>
-                            <label class="check-item"><input type="checkbox" data-value="bows"><span class="txt">Бантики</span><span class="extra">+250 ₽</span></label>
-                        </div>
-                    </div>
-
-                    <div class="field" id="sprinklesStyleField" style="display:none">
-                        <label>Стиль посыпки</label>
-                        <div class="opt-grid" data-group="sprinklesStyle">
-                            <div class="opt selected" data-value="sticks">Палочки</div>
-                            <div class="opt" data-value="dots">Шарики</div>
-                            <div class="opt" data-value="stars">Звёздочки</div>
-                        </div>
-                        <label style="margin-top:14px">Плотность</label>
-                        <div class="opt-grid" data-group="sprinklesDensity">
-                            <div class="opt" data-value="low">Редко</div>
-                            <div class="opt selected" data-value="medium">Средне</div>
-                            <div class="opt" data-value="high">Густо</div>
-                        </div>
-                    </div>
-                    <div class="field" id="sprinklesColorField" style="display:none">
-                        <label>Цвет посыпки</label>
-                        <div class="color-row" data-group="sprinklesColor"></div>
-                        <div class="color-actions">
-                            <button class="util-btn" data-copy-to="sprinklesColor" data-copy-from="creamColor">= покрытие</button>
-                        </div>
-                    </div>
-
-                    <div class="field" id="glitterStyleField" style="display:none">
-                        <label>Стиль блёсток</label>
-                        <div class="opt-grid" data-group="glitterStyle">
-                            <div class="opt selected" data-value="dots">Точки</div>
-                            <div class="opt" data-value="diamonds">Ромбики</div>
-                            <div class="opt" data-value="crosses">Крестики</div>
-                        </div>
-                    </div>
-                    <div class="field" id="glitterColorField" style="display:none">
-                        <label>Цвет блёсток</label>
-                        <div class="color-row" data-group="glitterColor"></div>
-                    </div>
-
-                    <div class="field" id="bowsStyleField" style="display:none">
-                        <label>Стиль бантиков</label>
-                        <div class="opt-grid" data-group="bowsStyle">
-                            <div class="opt selected" data-value="classic">Классика</div>
-                            <div class="opt" data-value="small">Маленькие</div>
-                            <div class="opt" data-value="bowtie">Бабочка</div>
-                        </div>
-                    </div>
-                    <div class="field" id="bowsColorField" style="display:none">
-                        <label>Цвет бантиков</label>
-                        <div class="color-row" data-group="bowsColor"></div>
-                        <div class="color-actions">
-                            <button class="util-btn" data-copy-to="bowsColor" data-copy-from="creamColor">= покрытие</button>
-                        </div>
-                    </div>
-
-                    <div class="field">
-                        <label>Надпись на торте</label>
-                        <input type="text" class="text-input" id="inscription" maxlength="20" placeholder="С днём рождения!" />
-                        <div class="hint">До 20 символов. Любой язык.</div>
-                    </div>
-                    <div class="field" id="inscriptionColorField" style="display:none">
-                        <label>Цвет надписи</label>
-                        <div class="color-row" data-group="inscriptionColor"></div>
-                    </div>
-                    <div class="field" id="inscriptionFontField" style="display:none">
-                        <label>Шрифт надписи</label>
-                        <div class="opt-grid" data-group="inscriptionFont">
-                            <div class="opt selected" data-value="manrope">Manrope</div>
-                            <div class="opt" data-value="playfair">Playfair</div>
-                            <div class="opt" data-value="caveat">Рукописный</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 5 -->
-                <div class="page" data-page="4">
-                    <h2>Ваш торт готов</h2>
-                    <p class="subtitle">Проверьте детали заказа</p>
-                    <div id="summary"></div>
-                </div>
-            </div>
-
-            <div id="footer">
-                <div id="current-price">Текущая цена<strong>0 ₽</strong></div>
-                <button class="btn btn-util" id="btnReset" title="Сбросить всё">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>
-                </button>
-                <button class="btn btn-util" id="btnShare" title="Скопировать ссылку">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
-                </button>
-                <button class="btn btn-util" id="btnSnapshot" title="Скачать превью">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>
-                </button>
-                <button class="btn btn-prev" id="btnPrev" disabled>← Назад</button>
-                <button class="btn btn-next" id="btnNext">Далее →</button>
-            </div>
-        </div>
+  <div id="panel">
+    <div id="stepper">
+      <div id="progress-bar"><div id="progress-fill"></div></div>
+      <div class="steps-row">
+        <div class="step-dot" data-step="0"><div class="num">1</div><div class="lbl">Форма</div></div>
+        <div class="step-dot" data-step="1"><div class="num">2</div><div class="lbl">Вкус</div></div>
+        <div class="step-dot" data-step="2"><div class="num">3</div><div class="lbl">Покрытие</div></div>
+        <div class="step-dot" data-step="3"><div class="num">4</div><div class="lbl">Декор</div></div>
+        <div class="step-dot" data-step="4"><div class="num">5</div><div class="lbl">Итог</div></div>
+      </div>
     </div>
 
-    <script type="importmap">
-        {
-          "imports": {
-            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-          }
-        }
-    </script>
-
-    <script type="module">
-        import * as THREE from 'three';
-        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-
-        /* ============================================================
-           1. ПАЛИТРЫ
-           ============================================================ */
-        const PALETTES = {
-            bright: {
-                cream: ['#ffb3d1', '#ffffff', '#ffd6e0', '#f7e0b5', '#c9a0dc', '#a8e6cf', '#ffb3c6', '#ffe066'],
-                brim: ['#ff519f', '#ff85bb', '#ffffff', '#ffd6e0', '#c9a0dc', '#a8e6cf'],
-                ruffles: ['#ff3d94', '#ffffff', '#ffd6e0', '#c9a0dc', '#a8e6cf', '#ffe066'],
-                sprinkles: ['#ff519f', '#ffd166', '#6ee7b7', '#93c5fd', '#fca5a5', '#c4b5fd'],
-                glitter: ['#fff2a8', '#ffd166', '#ffffff', '#ffb3d1'],
-                bows: ['#ff3d94', '#ff85bb', '#ffffff', '#ffd166'],
-                inscription: ['#ff3d94', '#c0286e', '#ffffff', '#ffd166']
-            },
-            pastel: {
-                cream: ['#fff0f5', '#ffffff', '#ffe4ef', '#fbe8d5', '#e6d5f0', '#d5f0e6', '#ffe0e5', '#fff5cc'],
-                brim: ['#ffd6e0', '#ffe9f2', '#ffffff', '#f7e0b5', '#e6d5f0', '#d5f0e6'],
-                ruffles: ['#ffd6e0', '#ffffff', '#ffe4ef', '#e6d5f0', '#d5f0e6', '#fff5cc'],
-                sprinkles: ['#ffd6e0', '#ffe4a8', '#b8f0d5', '#c5d9f5', '#fcc5c5', '#d9c5f5'],
-                glitter: ['#fff5cc', '#ffe4a8', '#ffffff', '#ffd6e0'],
-                bows: ['#ffd6e0', '#ffe9f2', '#ffffff', '#ffe4a8'],
-                inscription: ['#ff85bb', '#ffb3d1', '#ffffff', '#ffe066']
-            },
-            creamy: {
-                cream: ['#f5e6d3', '#fdf3e3', '#ffffff', '#fbe8d5', '#e8d5b7', '#d4c4a8', '#fce9d9', '#e6d0b8'],
-                brim: ['#c9a67c', '#d4a574', '#e8d5b7', '#b8956a', '#f5e6d3'],
-                ruffles: ['#d4a574', '#c9a67c', '#e8d5b7', '#f5e6d3', '#b8956a'],
-                sprinkles: ['#c9a67c', '#d4a574', '#8b6b4a', '#e8d5b7', '#ffffff'],
-                glitter: ['#ffe4a8', '#ffd166', '#ffffff'],
-                bows: ['#c9a67c', '#d4a574', '#8b6b4a', '#ffffff'],
-                inscription: ['#8b6b4a', '#6b4a2e', '#c9a67c']
-            }
-        };
-
-        /* ============================================================
-           2. ДАННЫЕ
-           ============================================================ */
-        const FLAVORS = [
-            { id: 'snickers', name: 'Сникерс', price: 300, color: '#c98b4b', cut: 'cut-snickers' },
-            { id: 'twochoc', name: 'Два шоколада', price: 250, color: '#5a3825', cut: 'cut-twochoc' },
-            { id: 'cherry', name: 'Вишня', price: 350, color: '#a0173a', cut: 'cut-cherry' },
-            { id: 'redvelvet', name: 'Красный бархат', price: 400, color: '#8b1a2b', cut: 'cut-redvelvet' },
-            { id: 'vanilla', name: 'Ваниль-малина', price: 280, color: '#f2d5e0', cut: 'cut-vanilla' }
-        ];
-        const COLOR_NAMES = {
-            '#ffb3d1': 'Розовый', '#ffffff': 'Белый', '#ffd6e0': 'Пудровый', '#f7e0b5': 'Кремовый',
-            '#c9a0dc': 'Лавандовый', '#a8e6cf': 'Мятный', '#ffb3c6': 'Коралловый', '#ffe066': 'Жёлтый',
-            '#ff519f': 'Ярко-розовый', '#ff85bb': 'Розовый', '#ff3d94': 'Малиновый', '#ffd166': 'Золотой',
-            '#6ee7b7': 'Мятный', '#93c5fd': 'Голубой', '#fca5a5': 'Коралл', '#c4b5fd': 'Сиреневый',
-            '#fff2a8': 'Светло-жёлтый', '#c0286e': 'Тёмно-розовый', '#8b6b4a': 'Коричневый',
-            '#6b4a2e': 'Шоколадный', '#c9a67c': 'Карамельный', '#b8956a': 'Кофейный', '#8b5a2b': 'Тёмный шоколад',
-            '#fff0f5': 'Розовый', '#ffe4ef': 'Пудровый', '#fbe8d5': 'Кремовый', '#e6d5f0': 'Лавандовый',
-            '#d5f0e6': 'Мятный', '#ffe0e5': 'Коралловый', '#fff5cc': 'Сливочный', '#ffe4a8': 'Песочный',
-            '#b8f0d5': 'Светло-мятный', '#c5d9f5': 'Светло-голубой', '#fcc5c5': 'Светло-коралловый', '#d9c5f5': 'Светло-сиреневый',
-            '#ffe9f2': 'Очень светлый розовый', '#f5e6d3': 'Бежевый', '#fdf3e3': 'Сливочный',
-            '#e8d5b7': 'Светло-коричневый', '#d4c4a8': 'Песочный', '#fce9d9': 'Персиковый', '#e6d0b8': 'Карамельный',
-            '#d4a574': 'Карамель', '#4a2a18': 'Тёмный шоколад', '#e8c78f': 'Бисквит', '#a0173a': 'Вишнёвый',
-            '#8b1a2b': 'Бордовый', '#f2d5e0': 'Розовый'
-        };
-        function colorName(hex) { return COLOR_NAMES[hex] || hex; }
-
-        const RUFFLE_NAMES = { none: 'Без рюш', waves: 'Волны', roses: 'Розочки', drops: 'Капли', stars: 'Звёздочки', hearts: 'Сердечки' };
-        const TIER_NAMES = { 1: '1 ярус', 2: '2 яруса', 3: '3 яруса' };
-        const SIZE_NAMES = { small: 'Мелкие', medium: 'Средние', large: 'Крупные' };
-        const STYLE_NAMES = {
-            sticks: 'Палочки', dots: 'Шарики', stars: 'Звёздочки',
-            diamonds: 'Ромбики', crosses: 'Крестики',
-            classic: 'Классика', small: 'Маленькие', bowtie: 'Бабочка',
-            low: 'Редко', medium: 'Средне', high: 'Густо',
-            manrope: 'Manrope', playfair: 'Playfair', caveat: 'Рукописный'
-        };
-
-        const PRICES = {
-            baseTier: 1200, perKg: 900,
-            ruffles: { none: 0, waves: 200, roses: 450, drops: 250, stars: 300, hearts: 380 },
-            decor: { sprinkles: 120, glitter: 150, bows: 250 }
-        };
-
-        const DEFAULT_STATE = {
-            tiers: 2, weight: 1.5, flavor: 'snickers',
-            creamColor: '#ffb3d1',
-            brimColor: '#ff519f',
-            brimSame: false,
-            ruffles: 'none',
-            rufflesColor: '#ff3d94',
-            rufflesSize: 'small',
-            decor: { sprinkles: false, glitter: false, bows: false },
-            sprinklesStyle: 'sticks',
-            sprinklesDensity: 'medium',
-            sprinklesColor: '#ff519f',
-            glitterStyle: 'dots',
-            glitterColor: '#fff2a8',
-            bowsStyle: 'classic',
-            bowsColor: '#ff3d94',
-            inscription: '',
-            inscriptionColor: '#ff3d94',
-            inscriptionFont: 'manrope',
-            palette: 'bright'
-        };
-        const STORAGE_KEY = 'bb-cake-constructor-v4';
-        let state = loadState();
-
-        function loadState() {
-            try {
-                const hash = window.location.hash.slice(1);
-                if (hash) {
-                    const decoded = JSON.parse(decodeURIComponent(escape(atob(hash))));
-                    return { ...structuredClone(DEFAULT_STATE), ...decoded, decor: { ...DEFAULT_STATE.decor, ...(decoded.decor || {}) } };
-                }
-                const raw = localStorage.getItem(STORAGE_KEY);
-                if (!raw) return structuredClone(DEFAULT_STATE);
-                const p = JSON.parse(raw);
-                return { ...structuredClone(DEFAULT_STATE), ...p, decor: { ...DEFAULT_STATE.decor, ...(p.decor || {}) } };
-            } catch { return structuredClone(DEFAULT_STATE); }
-        }
-        function saveState() {
-            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { }
-            try {
-                const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(state))));
-                history.replaceState(null, '', '#' + encoded);
-            } catch { }
-        }
-
-        function calcPrice() {
-            let t = state.tiers * PRICES.baseTier + state.weight * PRICES.perKg;
-            const f = FLAVORS.find(f => f.id === state.flavor); if (f) t += f.price;
-            t += PRICES.ruffles[state.ruffles] || 0;
-            for (const k in state.decor) if (state.decor[k]) t += PRICES.decor[k];
-            return Math.round(t);
-        }
-
-        /* ============================================================
-           3. THREE.JS
-           ============================================================ */
-        const container = document.getElementById('canvas-container');
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
-        camera.position.set(3.8, 4.8, 7.2);
-
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        renderer.setClearColor(0x000000, 0);
-        container.appendChild(renderer.domElement);
-
-        const controls = new OrbitControls(camera, renderer.domElement);
-        controls.target.set(0, 1.55, 0);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.08;
-        controls.minDistance = 3;
-        controls.maxDistance = 14;
-        controls.maxPolarAngle = Math.PI / 2.05;
-        controls.enablePan = false;
-        controls.update();
-
-        scene.add(new THREE.AmbientLight(0xffffff, 0.75));
-        const key = new THREE.DirectionalLight(0xffffff, 2.4);
-        key.position.set(5, 9, 5);
-        key.castShadow = true;
-        key.shadow.mapSize.set(1024, 1024);
-        key.shadow.camera.near = 0.5; key.shadow.camera.far = 30;
-        key.shadow.camera.left = -6; key.shadow.camera.right = 6;
-        key.shadow.camera.top = 6; key.shadow.camera.bottom = -6;
-        key.shadow.bias = -0.0005;
-        scene.add(key);
-        const fill = new THREE.DirectionalLight(0xffd9e6, 1.1);
-        fill.position.set(-6, 4, -4);
-        scene.add(fill);
-        const rim = new THREE.PointLight(0xff9ec4, 1.3, 22);
-        rim.position.set(0, 5, -6);
-        scene.add(rim);
-
-        const podium = new THREE.Mesh(
-            new THREE.CylinderGeometry(2.4, 2.55, 0.22, 64),
-            new THREE.MeshStandardMaterial({ color: '#f8eef2', roughness: 0.9 })
-        );
-        podium.position.y = -0.11;
-        podium.receiveShadow = true;
-        scene.add(podium);
-
-        const podiumRing = new THREE.Mesh(
-            new THREE.TorusGeometry(2.4, 0.018, 8, 64),
-            new THREE.MeshBasicMaterial({ color: '#ffb3d1', transparent: true, opacity: 0.55 })
-        );
-        podiumRing.rotation.x = Math.PI / 2;
-        podiumRing.position.y = 0.005;
-        scene.add(podiumRing);
-
-        const cakeGroup = new THREE.Group();
-        scene.add(cakeGroup);
-
-        const tierConfigs = [
-            { radius: 1.0, height: 0.85, yBase: 0.0 },
-            { radius: 0.78, height: 0.75, yBase: 0.85 },
-            { radius: 0.58, height: 0.65, yBase: 1.60 }
-        ];
-
-        /* ---------- Надпись ---------- */
-        function createInscriptionTexture(text, color, fontKey) {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            const W = 1024, H = 256;
-            canvas.width = W; canvas.height = H;
-            ctx.clearRect(0, 0, W, H);
-
-            const fontFamily = fontKey === 'playfair'
-                ? 'Playfair Display, serif'
-                : fontKey === 'caveat'
-                    ? 'Caveat, cursive'
-                    : 'Manrope, Arial, sans-serif';
-            const fontWeight = fontKey === 'caveat' ? '700' : '800';
-
-            let fontSize = 140;
-            const maxWidth = W * 0.9;
-            ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
-            let metrics = ctx.measureText(text);
-            if (metrics.width > maxWidth) {
-                fontSize = Math.floor(fontSize * maxWidth / metrics.width);
-                ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
-            }
-            ctx.fillStyle = color;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(text, W / 2, H / 2 + 6);
-
-            const tex = new THREE.CanvasTexture(canvas);
-            tex.needsUpdate = true;
-            tex.anisotropy = 4;
-            return tex;
-        }
-
-        /* ---------- Плавная смена цвета ---------- */
-        const colorTransitions = new Map();
-        function transitionColor(material, targetHex) {
-            if (!material) return;
-            const target = new THREE.Color(targetHex);
-            colorTransitions.set(material, { target, start: material.color.clone(), t0: performance.now() });
-        }
-        function stepColorTransitions(now) {
-            colorTransitions.forEach((v, mat) => {
-                const t = Math.min(1, (now - v.t0) / 300);
-                const e = 1 - Math.pow(1 - t, 3);
-                mat.color.copy(v.start).lerp(v.target, e);
-                if (t >= 1) colorTransitions.delete(mat);
-            });
-        }
-
-        /* ---------- Кэш материалов для плавной смены цвета ---------- */
-        let creamMatCached = null;
-        let brimMatCached = null;
-
-        /* ---------- Построение ---------- */
-        function rebuildCake() {
-            while (cakeGroup.children.length > 0) {
-                const c = cakeGroup.children[0];
-                cakeGroup.remove(c);
-                if (c.geometry) c.geometry.dispose?.();
-                if (c.material && c.material !== creamMatCached && c.material !== brimMatCached) {
-                    if (c.material.map) c.material.map.dispose?.();
-                    c.material.dispose?.();
-                }
-            }
-
-            const creamColor = state.creamColor;
-            const brimColor = state.brimSame ? creamColor : state.brimColor;
-
-            if (!creamMatCached) creamMatCached = new THREE.MeshStandardMaterial({ color: creamColor, roughness: 0.62, metalness: 0.04 });
-            else transitionColor(creamMatCached, creamColor);
-
-            if (!brimMatCached) brimMatCached = new THREE.MeshStandardMaterial({ color: brimColor, roughness: 0.6, metalness: 0.04 });
-            else transitionColor(brimMatCached, brimColor);
-
-            const plateMat = new THREE.MeshStandardMaterial({ color: '#f2e6eb', roughness: 0.35, metalness: 0.3 });
-            const flavor = FLAVORS.find(f => f.id === state.flavor) || FLAVORS[0];
-            const flavorMat = new THREE.MeshStandardMaterial({ color: flavor.color, roughness: 0.85 });
-
-            const plate = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.4, 0.1, 64), plateMat);
-            plate.position.y = 0.05;
-            plate.castShadow = plate.receiveShadow = true;
-            cakeGroup.add(plate);
-
-            const active = tierConfigs.slice(0, state.tiers);
-            const weightScale = 0.9 + (state.weight - 1) * 0.12;
-
-            active.forEach((cfg) => {
-                const yCenter = cfg.yBase + cfg.height / 2;
-                const tier = new THREE.Mesh(
-                    new THREE.CylinderGeometry(cfg.radius, cfg.radius * 0.985, cfg.height, 64), creamMatCached
-                );
-                tier.position.y = yCenter;
-                tier.castShadow = tier.receiveShadow = true;
-                cakeGroup.add(tier);
-
-                const rim = new THREE.Mesh(
-                    new THREE.CylinderGeometry(cfg.radius * 0.92, cfg.radius * 0.92, 0.05, 64), flavorMat
-                );
-                rim.position.y = cfg.yBase + cfg.height + 0.008;
-                cakeGroup.add(rim);
-
-                const top = new THREE.Mesh(
-                    new THREE.CylinderGeometry(cfg.radius * 1.03, cfg.radius * 1.03, 0.08, 64), brimMatCached
-                );
-                top.position.y = cfg.yBase + cfg.height - 0.03;
-                top.castShadow = true;
-                cakeGroup.add(top);
-
-                addRuffles(cfg);
-                if (state.decor.sprinkles) addSprinkles(cfg);
-                if (state.decor.glitter) addGlitter(cfg);
-            });
-
-            if (state.decor.bows) addBows(active);
-            if (state.inscription && active.length > 0) addInscription(active[active.length - 1]);
-
-            cakeGroup.scale.setScalar(weightScale * 0.92);
-            const start = performance.now();
-            (function grow(now) {
-                const t = Math.min(1, (now - start) / 300);
-                const ease = 1 - Math.pow(1 - t, 3);
-                cakeGroup.scale.setScalar(weightScale * (0.92 + 0.08 * ease));
-                if (t < 1) requestAnimationFrame(grow);
-            })(start);
-        }
-
-        function addRuffles(cfg) {
-            if (state.ruffles === 'none') return;
-            const sizeMap = { small: 1, medium: 1.4, large: 1.8 };
-            const scale = sizeMap[state.rufflesSize] || 1;
-            const count = state.rufflesSize === 'large' ? 12 : state.rufflesSize === 'small' ? 20 : 16;
-            const r = cfg.radius * 1.005;
-            const y = cfg.yBase + cfg.height - 0.08;
-            const mat = new THREE.MeshStandardMaterial({ color: state.rufflesColor, roughness: 0.5, metalness: 0.05 });
-
-            for (let i = 0; i < count; i++) {
-                const a = (i / count) * Math.PI * 2;
-                let m;
-                if (state.ruffles === 'waves') {
-                    m = new THREE.Mesh(new THREE.SphereGeometry(0.07 * scale, 12, 12), mat);
-                    m.scale.set(1, 0.55, 1);
-                } else if (state.ruffles === 'roses') {
-                    m = new THREE.Mesh(new THREE.TorusGeometry(0.07 * scale, 0.026 * scale, 8, 18), mat);
-                    m.rotation.x = Math.PI / 2;
-                } else if (state.ruffles === 'drops') {
-                    m = new THREE.Mesh(new THREE.ConeGeometry(0.06 * scale, 0.14 * scale, 12), mat);
-                    m.rotation.x = Math.PI;
-                    m.position.y = -0.04;
-                } else if (state.ruffles === 'stars') {
-                    const shape = new THREE.Shape();
-                    const spikes = 5, outer = 0.08 * scale, inner = 0.035 * scale;
-                    for (let k = 0; k < spikes * 2; k++) {
-                        const rad = k % 2 === 0 ? outer : inner;
-                        const ang = (k / (spikes * 2)) * Math.PI * 2 - Math.PI / 2;
-                        const x = Math.cos(ang) * rad, yy = Math.sin(ang) * rad;
-                        if (k === 0) shape.moveTo(x, yy); else shape.lineTo(x, yy);
-                    }
-                    shape.closePath();
-                    const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.03, bevelEnabled: false });
-                    m = new THREE.Mesh(geo, mat);
-                    m.rotation.x = -Math.PI / 2;
-                } else if (state.ruffles === 'hearts') {
-                    const heart = new THREE.Shape();
-                    const s = 0.06 * scale;
-                    heart.moveTo(0, s * 0.5);
-                    heart.bezierCurveTo(s, s * 1.5, s * 2, -s * 0.5, 0, -s * 1.5);
-                    heart.bezierCurveTo(-s * 2, -s * 0.5, -s, s * 1.5, 0, s * 0.5);
-                    const geo = new THREE.ExtrudeGeometry(heart, { depth: 0.03, bevelEnabled: false });
-                    m = new THREE.Mesh(geo, mat);
-                    m.rotation.x = -Math.PI / 2;
-                }
-                m.position.x += Math.cos(a) * r;
-                m.position.y += y;
-                m.position.z += Math.sin(a) * r;
-                m.rotation.z = a;
-                m.castShadow = true;
-                cakeGroup.add(m);
-            }
-        }
-
-        function addSprinkles(cfg) {
-            const densityMap = { low: 22, medium: 45, high: 85 };
-            const count = densityMap[state.sprinklesDensity] || 45;
-            const r = cfg.radius * 0.88;
-            const mat = new THREE.MeshStandardMaterial({ color: state.sprinklesColor, roughness: 0.4 });
-            for (let i = 0; i < count; i++) {
-                const a = Math.random() * Math.PI * 2;
-                const rad = Math.sqrt(Math.random()) * r;
-                let m;
-                if (state.sprinklesStyle === 'sticks') {
-                    m = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.012, 0.08), mat);
-                } else if (state.sprinklesStyle === 'dots') {
-                    m = new THREE.Mesh(new THREE.SphereGeometry(0.028, 8, 8), mat);
-                } else {
-                    m = new THREE.Mesh(new THREE.TetrahedronGeometry(0.035), mat);
-                }
-                m.position.set(Math.cos(a) * rad, cfg.yBase + cfg.height + 0.02, Math.sin(a) * rad);
-                m.rotation.set(Math.random() * 2, Math.random() * 2, Math.random() * 2);
-                cakeGroup.add(m);
-            }
-        }
-
-        function addGlitter(cfg) {
-            const count = 32;
-            const r = cfg.radius * 1.02;
-            const mat = new THREE.MeshBasicMaterial({ color: state.glitterColor });
-            for (let i = 0; i < count; i++) {
-                const a = Math.random() * Math.PI * 2;
-                const y = cfg.yBase + 0.06 + Math.random() * (cfg.height - 0.12);
-                let m;
-                if (state.glitterStyle === 'dots') {
-                    m = new THREE.Mesh(new THREE.SphereGeometry(0.016, 6, 6), mat);
-                } else if (state.glitterStyle === 'diamonds') {
-                    m = new THREE.Mesh(new THREE.OctahedronGeometry(0.025, 0), mat);
-                } else {
-                    const g1 = new THREE.BoxGeometry(0.04, 0.008, 0.008);
-                    const g2 = new THREE.BoxGeometry(0.008, 0.04, 0.008);
-                    m = new THREE.Group();
-                    m.add(new THREE.Mesh(g1, mat));
-                    m.add(new THREE.Mesh(g2, mat));
-                }
-                m.position.set(Math.cos(a) * r, y, Math.sin(a) * r);
-                cakeGroup.add(m);
-            }
-        }
-
-        function addBows(active) {
-            const top = active[active.length - 1];
-            const y = top.yBase + top.height + 0.02;
-            const mat = new THREE.MeshStandardMaterial({ color: state.bowsColor, roughness: 0.3, metalness: 0.1 });
-            const sizeMap = { classic: 0.07, small: 0.045, bowtie: 0.09 };
-            const size = sizeMap[state.bowsStyle] || 0.07;
-            const count = 4;
-            for (let i = 0; i < count; i++) {
-                const a = (i / count) * Math.PI * 2 + Math.PI / 4;
-                const x = Math.cos(a) * top.radius * 0.72;
-                const z = Math.sin(a) * top.radius * 0.72;
-                let bow;
-                if (state.bowsStyle === 'bowtie') {
-                    bow = new THREE.Group();
-                    const left = new THREE.Mesh(new THREE.ConeGeometry(size * 0.7, size * 1.4, 4), mat);
-                    left.rotation.z = Math.PI / 2;
-                    left.position.x = -size * 0.8;
-                    const right = new THREE.Mesh(new THREE.ConeGeometry(size * 0.7, size * 1.4, 4), mat);
-                    right.rotation.z = -Math.PI / 2;
-                    right.position.x = size * 0.8;
-                    const center = new THREE.Mesh(new THREE.SphereGeometry(size * 0.35, 8, 8), mat);
-                    bow.add(left, right, center);
-                } else {
-                    bow = new THREE.Mesh(new THREE.TorusGeometry(size, size * 0.4, 8, 18), mat);
-                }
-                bow.position.set(x, y, z);
-                bow.rotation.x = Math.PI / 2;
-                bow.rotation.z = a;
-                cakeGroup.add(bow);
-            }
-        }
-
-        function addInscription(top) {
-            const text = (state.inscription || '').slice(0, 20).trim();
-            if (!text) return;
-            const tex = createInscriptionTexture(text, state.inscriptionColor, state.inscriptionFont);
-            const planeW = top.radius * 2 * 0.92;
-            const planeH = planeW * 0.25;
-            const geo = new THREE.PlaneGeometry(planeW, planeH);
-            const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false });
-            const mesh = new THREE.Mesh(geo, mat);
-            mesh.rotation.x = -Math.PI / 2;
-            mesh.position.set(0, top.yBase + top.height + 0.045, 0);
-            cakeGroup.add(mesh);
-        }
-
-        /* ============================================================
-           4. UI
-           ============================================================ */
-        const pages = document.querySelectorAll('.page');
-        const dots = document.querySelectorAll('.step-dot');
-        const btnPrev = document.getElementById('btnPrev');
-        const btnNext = document.getElementById('btnNext');
-        const priceWrap = document.getElementById('current-price');
-        const summaryEl = document.getElementById('summary');
-        const progressFill = document.getElementById('progress-fill');
-        const flavorGrid = document.getElementById('flavorGrid');
-        const inscriptionInput = document.getElementById('inscription');
-        let currentPage = 0;
-
-        function renderFlavors() {
-            flavorGrid.innerHTML = FLAVORS.map(f => `
-        <div class="flavor-card ${state.flavor === f.id ? 'selected' : ''}" data-value="${f.id}">
-          <div class="badge">✓</div>
-          <div class="cut ${f.cut}"></div>
-          <div class="name">${f.name}</div>
-          <div class="price">+${f.price} ₽</div>
+    <div id="pages">
+      <div class="page active" data-page="0">
+        <h2>Форма и вес</h2>
+        <p class="subtitle">Количество ярусов и вес торта</p>
+        <div class="field">
+          <label>Количество ярусов</label>
+          <div class="opt-grid" data-group="tiers">
+            <div class="opt" data-value="1">1 ярус</div>
+            <div class="opt selected" data-value="2">2 яруса</div>
+            <div class="opt" data-value="3">3 яруса</div>
+          </div>
         </div>
-      `).join('');
-            flavorGrid.querySelectorAll('.flavor-card').forEach(card => {
-                card.addEventListener('click', () => {
-                    state.flavor = card.dataset.value;
-                    saveState(); renderFlavors(); refreshAll();
-                });
-            });
-        }
-
-        function renderColorRow(groupName) {
-            const el = document.querySelector(`[data-group="${groupName}"]`);
-            if (!el) return;
-            const palette = PALETTES[state.palette] || PALETTES.bright;
-            let colors;
-            if (groupName === 'creamColor') colors = palette.cream;
-            else if (groupName === 'brimColor') colors = palette.brim;
-            else if (groupName === 'rufflesColor') colors = palette.ruffles;
-            else if (groupName === 'sprinklesColor') colors = palette.sprinkles;
-            else if (groupName === 'glitterColor') colors = palette.glitter;
-            else if (groupName === 'bowsColor') colors = palette.bows;
-            else if (groupName === 'inscriptionColor') colors = palette.inscription;
-            else colors = palette.cream;
-
-            const current = state[groupName];
-            const list = colors.includes(current) ? colors : [current, ...colors];
-
-            el.innerHTML = list.map(c => `
-        <div class="color-swatch ${current === c ? 'selected' : ''}" data-value="${c}" style="background:${c}" title="${colorName(c)}"></div>
-      `).join('') + `
-        <div class="color-add" title="Свой цвет">
-          +
-          <input type="color" value="${current}" data-custom="${groupName}">
+        <div class="field">
+          <label>Вес</label>
+          <div class="opt-grid" data-group="weight">
+            <div class="opt" data-value="1">1 кг</div>
+            <div class="opt selected" data-value="1.5">1.5 кг</div>
+            <div class="opt" data-value="2">2 кг</div>
+            <div class="opt" data-value="3">3 кг</div>
+          </div>
         </div>
-      `;
+      </div>
 
-            el.querySelectorAll('.color-swatch').forEach(sw => {
-                sw.addEventListener('click', () => {
-                    state[groupName] = sw.dataset.value;
-                    if (groupName === 'creamColor' && state.brimSame) state.brimColor = state.creamColor;
-                    saveState(); refreshAll();
-                    renderColorRow(groupName);
-                    if (groupName === 'creamColor' && state.brimSame) renderColorRow('brimColor');
-                });
-            });
-            const inp = el.querySelector('input[type="color"]');
-            if (inp) {
-                inp.addEventListener('input', (e) => {
-                    state[groupName] = e.target.value;
-                    if (groupName === 'creamColor' && state.brimSame) state.brimColor = state.creamColor;
-                    saveState(); refreshAll();
-                    renderColorRow(groupName);
-                    if (groupName === 'creamColor' && state.brimSame) renderColorRow('brimColor');
-                });
-            }
-        }
+      <div class="page" data-page="1">
+        <h2>Вкус</h2>
+        <p class="subtitle">Посмотрите разрез и выберите начинку</p>
+        <div class="flavor-grid" data-group="flavor" id="flavorGrid"></div>
+      </div>
 
-        function bindOptGroup(groupName) {
-            const group = document.querySelector(`[data-group="${groupName}"]`);
-            if (!group) return;
-            group.querySelectorAll('.opt').forEach(opt => {
-                if (opt.dataset.value === String(state[groupName])) opt.classList.add('selected');
-                else opt.classList.remove('selected');
-                opt.addEventListener('click', () => {
-                    group.querySelectorAll('.opt').forEach(o => o.classList.remove('selected'));
-                    opt.classList.add('selected');
-                    const v = opt.dataset.value;
-                    if (groupName === 'weight') state.weight = parseFloat(v);
-                    else if (groupName === 'tiers') state.tiers = parseInt(v, 10);
-                    else state[groupName] = v;
-                    if (groupName === 'ruffles') updateRuffleFields();
-                    saveState(); refreshAll();
-                });
-            });
-        }
+      <div class="page" data-page="2">
+        <h2>Покрытие и рюши</h2>
+        <p class="subtitle">Цвета, форма рюш и стиль</p>
 
-        function updateRuffleFields() {
-            const has = state.ruffles !== 'none';
-            document.getElementById('ruflesColorField').style.display = has ? 'block' : 'none';
-            document.getElementById('ruflesSizeField').style.display = has ? 'block' : 'none';
-        }
-
-        function updateDecorFields() {
-            document.getElementById('sprinklesStyleField').style.display = state.decor.sprinkles ? 'block' : 'none';
-            document.getElementById('sprinklesColorField').style.display = state.decor.sprinkles ? 'block' : 'none';
-            document.getElementById('glitterStyleField').style.display = state.decor.glitter ? 'block' : 'none';
-            document.getElementById('glitterColorField').style.display = state.decor.glitter ? 'block' : 'none';
-            document.getElementById('bowsStyleField').style.display = state.decor.bows ? 'block' : 'none';
-            document.getElementById('bowsColorField').style.display = state.decor.bows ? 'block' : 'none';
-        }
-
-        document.querySelectorAll('[data-group="decor"] input').forEach(cb => {
-            const v = cb.dataset.value;
-            if (state.decor[v]) cb.checked = true;
-            cb.closest('.check-item').classList.toggle('checked', cb.checked);
-            cb.addEventListener('change', () => {
-                state.decor[v] = cb.checked;
-                cb.closest('.check-item').classList.toggle('checked', cb.checked);
-                updateDecorFields();
-                saveState(); refreshAll();
-            });
-        });
-
-        function updateInscriptionFields() {
-            const has = !!(state.inscription && state.inscription.trim());
-            document.getElementById('inscriptionColorField').style.display = has ? 'block' : 'none';
-            document.getElementById('inscriptionFontField').style.display = has ? 'block' : 'none';
-            if (has) renderColorRow('inscriptionColor');
-        }
-        inscriptionInput.value = state.inscription || '';
-        inscriptionInput.addEventListener('input', e => {
-            state.inscription = e.target.value;
-            updateInscriptionFields();
-            saveState(); refreshAll();
-        });
-
-        /* Палитры */
-        document.querySelectorAll('[data-palette]').forEach(btn => {
-            if (btn.dataset.palette === state.palette) btn.classList.add('active');
-            else btn.classList.remove('active');
-            btn.addEventListener('click', () => {
-                state.palette = btn.dataset.palette;
-                document.querySelectorAll('[data-palette]').forEach(b => b.classList.toggle('active', b === btn));
-                applyPaletteDefaults();
-                saveState(); refreshAll();
-                renderAllColors();
-            });
-        });
-
-        function applyPaletteDefaults() {
-            const p = PALETTES[state.palette];
-            if (!p) return;
-            state.creamColor = p.cream[0];
-            state.brimColor = p.brim[0];
-            state.brimSame = false;
-            state.rufflesColor = p.ruffles[0];
-            state.sprinklesColor = p.sprinkles[0];
-            state.glitterColor = p.glitter[0];
-            state.bowsColor = p.bows[0];
-            state.inscriptionColor = p.inscription[0];
-        }
-
-        document.getElementById('btnRandomAll').addEventListener('click', () => {
-            const p = PALETTES[state.palette];
-            const pick = arr => arr[Math.floor(Math.random() * arr.length)];
-            state.creamColor = pick(p.cream);
-            state.brimColor = pick(p.brim);
-            state.brimSame = false;
-            state.rufflesColor = pick(p.ruffles);
-            state.sprinklesColor = pick(p.sprinkles);
-            state.glitterColor = pick(p.glitter);
-            state.bowsColor = pick(p.bows);
-            state.inscriptionColor = pick(p.inscription);
-            saveState(); refreshAll(); renderAllColors();
-        });
-
-        /* Кнопки "= покрытие" */
-        document.querySelectorAll('[data-copy-to]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const to = btn.dataset.copyTo;
-                const from = btn.dataset.copyFrom;
-                state[to] = state[from];
-                if (to === 'brimColor') state.brimSame = false;
-                saveState(); refreshAll();
-                renderColorRow(to);
-            });
-        });
-
-        function renderAllColors() {
-            renderColorRow('creamColor');
-            renderColorRow('brimColor');
-            renderColorRow('rufflesColor');
-            renderColorRow('sprinklesColor');
-            renderColorRow('glitterColor');
-            renderColorRow('bowsColor');
-            renderColorRow('inscriptionColor');
-        }
-
-        /* ---------- Цена ---------- */
-        function updatePrice() {
-            const p = calcPrice();
-            priceWrap.innerHTML = `Текущая цена<strong>${p.toLocaleString('ru-RU')} ₽</strong>`;
-            priceWrap.classList.remove('pulse');
-            void priceWrap.offsetWidth;
-            priceWrap.classList.add('pulse');
-        }
-
-        function refreshAll() {
-            rebuildCake();
-            updatePrice();
-            if (currentPage === 4) renderSummary();
-        }
-
-        /* ---------- Итог ---------- */
-        function renderSummary() {
-            const f = FLAVORS.find(x => x.id === state.flavor);
-            const decorList = [];
-            if (state.decor.sprinkles) decorList.push(`Посыпка (${STYLE_NAMES[state.sprinklesStyle]}, ${STYLE_NAMES[state.sprinklesDensity]}) <span class="dot" style="background:${state.sprinklesColor}"></span>`);
-            if (state.decor.glitter) decorList.push(`Блёстки (${STYLE_NAMES[state.glitterStyle]}) <span class="dot" style="background:${state.glitterColor}"></span>`);
-            if (state.decor.bows) decorList.push(`Бантики (${STYLE_NAMES[state.bowsStyle]}) <span class="dot" style="background:${state.bowsColor}"></span>`);
-
-            const brimColor = state.brimSame ? state.creamColor : state.brimColor;
-
-            const rows = [
-                ['Форма', TIER_NAMES[state.tiers]],
-                ['Вес', state.weight + ' кг'],
-                ['Вкус', f ? f.name : '—'],
-                ['Покрытие', `${colorName(state.creamColor)} <span class="dot" style="background:${state.creamColor}"></span>`],
-                ['Бортики', `${colorName(brimColor)} <span class="dot" style="background:${brimColor}"></span>`],
-                ['Рюши', state.ruffles === 'none' ? 'Без рюш' : `${RUFFLE_NAMES[state.ruffles]}, ${SIZE_NAMES[state.rufflesSize]} <span class="dot" style="background:${state.rufflesColor}"></span>`],
-                ['Декор', decorList.length ? decorList.join('<br>') : 'Без декора'],
-                ['Надпись', state.inscription ? `«${state.inscription}» (${STYLE_NAMES[state.inscriptionFont]}) <span class="dot" style="background:${state.inscriptionColor}"></span>` : 'Нет']
-            ];
-            summaryEl.innerHTML = `
-        <div class="summary-card">
-          ${rows.map(([k, v]) => `<div class="summary-row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}
+        <div class="field">
+          <label>Быстрые палитры</label>
+          <div class="util-row" id="paletteRow">
+            <button class="util-btn active" data-palette="bright">✨ Яркие</button>
+            <button class="util-btn" data-palette="pastel">🌸 Пастельные</button>
+            <button class="util-btn" data-palette="creamy">🍰 Сливочные</button>
+            <button class="util-btn" id="btnRandomAll">🎲 Случайно</button>
+          </div>
         </div>
-        <div class="summary-total">
-          <span class="lbl">Итого</span>
-          <span class="sum">${calcPrice().toLocaleString('ru-RU')} ₽</span>
+
+        <div class="field">
+          <label>Цвет покрытия</label>
+          <div class="color-row" data-group="creamColor"></div>
         </div>
-        <button class="btn btn-next" style="width:100%;justify-content:center" id="btnOrder">Оформить заказ</button>
-      `;
-            document.getElementById('btnOrder').addEventListener('click', () => {
-                alert(`Заказ оформлен!\nИтоговая цена: ${calcPrice().toLocaleString('ru-RU')} ₽`);
-            });
-        }
 
-        /* ---------- Навигация ---------- */
-        function goToPage(idx) {
-            currentPage = Math.max(0, Math.min(4, idx));
-            pages.forEach((p, i) => p.classList.toggle('active', i === currentPage));
-            dots.forEach((d, i) => {
-                d.classList.toggle('active', i === currentPage);
-                d.classList.toggle('done', i < currentPage);
-            });
-            btnPrev.disabled = currentPage === 0;
-            btnNext.textContent = currentPage === 4 ? 'Оформить заказ' : 'Далее →';
-            progressFill.style.width = ((currentPage) / 4 * 100) + '%';
-            if (currentPage === 4) renderSummary();
-            document.getElementById('pages').scrollTop = 0;
-        }
-        btnPrev.addEventListener('click', () => goToPage(currentPage - 1));
-        btnNext.addEventListener('click', () => {
-            if (currentPage === 4) {
-                alert(`Заказ оформлен!\nИтоговая цена: ${calcPrice().toLocaleString('ru-RU')} ₽`);
-                return;
-            }
-            goToPage(currentPage + 1);
-        });
-        dots.forEach(d => d.addEventListener('click', () => goToPage(parseInt(d.dataset.step, 10))));
+        <div class="field">
+          <label>Цвет бортиков</label>
+          <div class="color-row" data-group="brimColor"></div>
+          <div class="color-actions">
+            <button class="util-btn" data-copy-to="brimColor" data-copy-from="creamColor">= покрытие</button>
+          </div>
+        </div>
 
-        /* ---------- Утилиты в футере ---------- */
-        document.getElementById('btnReset').addEventListener('click', () => {
-            if (!confirm('Сбросить все настройки?')) return;
-            state = structuredClone(DEFAULT_STATE);
-            saveState();
-            renderFlavors();
-            renderAllColors();
-            bindAllOptGroups();
-            updateRuffleFields();
-            updateDecorFields();
-            updateInscriptionFields();
-            inscriptionInput.value = '';
-            refreshAll();
-            goToPage(0);
-        });
+        <div class="field">
+          <label>Форма рюш</label>
+          <div class="opt-grid" data-group="ruffles">
+            <div class="opt selected" data-value="none">Без рюш</div>
+            <div class="opt" data-value="waves">Волны</div>
+            <div class="opt" data-value="roses">Розочки</div>
+            <div class="opt" data-value="drops">Капли</div>
+            <div class="opt" data-value="stars">Звёздочки</div>
+            <div class="opt" data-value="hearts">Сердечки</div>
+          </div>
+        </div>
+        <div class="field" id="ruflesColorField" style="display:none">
+          <label>Цвет рюш</label>
+          <div class="color-row" data-group="rufflesColor"></div>
+          <div class="color-actions">
+            <button class="util-btn" data-copy-to="rufflesColor" data-copy-from="creamColor">= покрытие</button>
+          </div>
+        </div>
+        <div class="field" id="ruflesSizeField" style="display:none">
+          <label>Размер рюш</label>
+          <div class="opt-grid" data-group="rufflesSize">
+            <div class="opt selected" data-value="small">Мелкие</div>
+            <div class="opt" data-value="medium">Средние</div>
+            <div class="opt" data-value="large">Крупные</div>
+          </div>
+        </div>
+      </div>
 
-        document.getElementById('btnShare').addEventListener('click', async () => {
-            const url = window.location.href;
-            try {
-                await navigator.clipboard.writeText(url);
-                flash('Ссылка скопирована');
-            } catch {
-                prompt('Скопируйте ссылку:', url);
-            }
-        });
+      <div class="page" data-page="3">
+        <h2>Декор</h2>
+        <p class="subtitle">Украшения, их цвета и надпись</p>
 
-        document.getElementById('btnSnapshot').addEventListener('click', () => {
-            try {
-                const url = renderer.domElement.toDataURL('image/png');
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `cake-${Date.now()}.png`;
-                a.click();
-            } catch (e) {
-                alert('Не удалось сохранить превью');
-            }
-        });
+        <div class="field">
+          <label>Добавить</label>
+          <div class="check-list" data-group="decor">
+            <label class="check-item"><input type="checkbox" data-value="sprinkles"><span class="txt">Посыпка</span><span class="extra">+120 ₽</span></label>
+            <label class="check-item"><input type="checkbox" data-value="glitter"><span class="txt">Блёстки</span><span class="extra">+150 ₽</span></label>
+            <label class="check-item"><input type="checkbox" data-value="bows"><span class="txt">Бантики</span><span class="extra">+250 ₽</span></label>
+          </div>
+        </div>
 
-        function flash(text) {
-            const el = document.createElement('div');
-            el.textContent = text;
-            el.style.cssText = 'position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:#221220;color:#fff;padding:10px 20px;border-radius:999px;font-weight:700;z-index:9999;font-family:Manrope,sans-serif;font-size:14px;box-shadow:0 10px 30px rgba(0,0,0,.2)';
-            document.body.appendChild(el);
-            setTimeout(() => el.remove(), 2000);
-        }
+        <div class="field" id="sprinklesStyleField" style="display:none">
+          <label>Стиль посыпки</label>
+          <div class="opt-grid" data-group="sprinklesStyle">
+            <div class="opt selected" data-value="sticks">Палочки</div>
+            <div class="opt" data-value="dots">Шарики</div>
+            <div class="opt" data-value="stars">Звёздочки</div>
+          </div>
+          <label style="margin-top:14px">Плотность</label>
+          <div class="opt-grid" data-group="sprinklesDensity">
+            <div class="opt" data-value="low">Редко</div>
+            <div class="opt selected" data-value="medium">Средне</div>
+            <div class="opt" data-value="high">Густо</div>
+          </div>
+        </div>
+        <div class="field" id="sprinklesColorField" style="display:none">
+          <label>Цвет посыпки</label>
+          <div class="color-row" data-group="sprinklesColor"></div>
+          <div class="color-actions">
+            <button class="util-btn" data-copy-to="sprinklesColor" data-copy-from="creamColor">= покрытие</button>
+          </div>
+        </div>
 
-        /* ---------- Кнопки "= покрытие" — дублируем в renderColorRow ---------- */
-        /* уже сделано выше через data-copy-to */
+        <div class="field" id="glitterStyleField" style="display:none">
+          <label>Стиль блёсток</label>
+          <div class="opt-grid" data-group="glitterStyle">
+            <div class="opt selected" data-value="dots">Точки</div>
+            <div class="opt" data-value="diamonds">Ромбики</div>
+            <div class="opt" data-value="crosses">Крестики</div>
+          </div>
+        </div>
+        <div class="field" id="glitterColorField" style="display:none">
+          <label>Цвет блёсток</label>
+          <div class="color-row" data-group="glitterColor"></div>
+        </div>
 
-        /* ---------- Ресайз ---------- */
-        function resize() {
-            const w = container.clientWidth, h = container.clientHeight;
-            renderer.setSize(w, h);
-            camera.aspect = w / h;
-            camera.updateProjectionMatrix();
-        }
-        window.addEventListener('resize', resize);
+        <div class="field" id="bowsStyleField" style="display:none">
+          <label>Стиль бантиков</label>
+          <div class="opt-grid" data-group="bowsStyle">
+            <div class="opt selected" data-value="classic">Классика</div>
+            <div class="opt" data-value="small">Маленькие</div>
+            <div class="opt" data-value="bowtie">Бабочка</div>
+          </div>
+        </div>
+        <div class="field" id="bowsColorField" style="display:none">
+          <label>Цвет бантиков</label>
+          <div class="color-row" data-group="bowsColor"></div>
+          <div class="color-actions">
+            <button class="util-btn" data-copy-to="bowsColor" data-copy-from="creamColor">= покрытие</button>
+          </div>
+        </div>
 
-        /* ---------- Клавиатура ---------- */
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') { if (currentPage > 0) goToPage(currentPage - 1); }
-            if (e.key === 'Enter' && currentPage === 4 && document.activeElement.tagName !== 'INPUT') {
-                alert(`Заказ оформлен!\nИтоговая цена: ${calcPrice().toLocaleString('ru-RU')} ₽`);
-            }
-        });
+        <div class="field">
+          <label>Надпись на торте</label>
+          <input type="text" class="text-input" id="inscription" maxlength="20" placeholder="С днём рождения!" />
+          <div class="hint">До 20 символов. Любой язык.</div>
+        </div>
+        <div class="field" id="inscriptionColorField" style="display:none">
+          <label>Цвет надписи</label>
+          <div class="color-row" data-group="inscriptionColor"></div>
+        </div>
+        <div class="field" id="inscriptionFontField" style="display:none">
+          <label>Шрифт надписи</label>
+          <div class="opt-grid" data-group="inscriptionFont">
+            <div class="opt selected" data-value="manrope">Manrope</div>
+            <div class="opt" data-value="playfair">Playfair</div>
+            <div class="opt" data-value="caveat">Рукописный</div>
+          </div>
+        </div>
+      </div>
 
-        /* ---------- Анимация ---------- */
-        function animate() {
-            requestAnimationFrame(animate);
-            controls.update();
-            stepColorTransitions(performance.now());
-            renderer.render(scene, camera);
-        }
+      <div class="page" data-page="4">
+        <h2>Ваш торт готов</h2>
+        <p class="subtitle">Проверьте детали заказа</p>
+        <div id="summary"></div>
+      </div>
+    </div>
 
-        /* ---------- Bind всех групп (для Reset) ---------- */
-        function bindAllOptGroups() {
-            document.querySelectorAll('.opt-grid').forEach(g => {
-                const name = g.dataset.group;
-                if (!name || name === 'decor' || name === 'flavor') return;
-                bindOptGroup(name);
-            });
-        }
+    <div id="footer">
+      <div id="current-price">Текущая цена<strong>0 ₽</strong></div>
+      <button class="btn btn-util" id="btnReset" title="Сбросить">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+      </button>
+      <button class="btn btn-util" id="btnSnapshot" title="Скачать превью">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      </button>
+      <button class="btn btn-prev" id="btnPrev" disabled>← Назад</button>
+      <button class="btn btn-next" id="btnNext">Далее →</button>
+    </div>
+  </div>
+</div>
 
-        /* ============================================================
-           5. ИНИЦИАЛИЗАЦИЯ
-           ============================================================ */
-        renderFlavors();
-        renderAllColors();
-        bindAllOptGroups();
-        updateRuffleFields();
-        updateDecorFields();
-        updateInscriptionFields();
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
 
-        resize();
-        rebuildCake();
-        updatePrice();
-        goToPage(0);
-        animate();
-    </script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* ============================================================
+   0. API
+   ============================================================ */
+const API_URL = "https://7dc3ae5097f18489-37-215-13-53.serveousercontent.com"; // ← поменяйте на ваш API
+let API_AVAILABLE = false;
+
+/* ============================================================
+   1. ПАЛИТРЫ (локальные — для цветов)
+   ============================================================ */
+const PALETTES = {
+  bright: {
+    cream: ['#ffb3d1', '#ffffff', '#ffd6e0', '#f7e0b5', '#c9a0dc', '#a8e6cf', '#ffb3c6', '#ffe066'],
+    brim: ['#ff519f', '#ff85bb', '#ffffff', '#ffd6e0', '#c9a0dc', '#a8e6cf'],
+    ruffles: ['#ff3d94', '#ffffff', '#ffd6e0', '#c9a0dc', '#a8e6cf', '#ffe066'],
+    sprinkles: ['#ff519f', '#ffd166', '#6ee7b7', '#93c5fd', '#fca5a5', '#c4b5fd'],
+    glitter: ['#fff2a8', '#ffd166', '#ffffff', '#ffb3d1'],
+    bows: ['#ff3d94', '#ff85bb', '#ffffff', '#ffd166'],
+    inscription: ['#ff3d94', '#c0286e', '#ffffff', '#ffd166']
+  },
+  pastel: {
+    cream: ['#fff0f5', '#ffffff', '#ffe4ef', '#fbe8d5', '#e6d5f0', '#d5f0e6', '#ffe0e5', '#fff5cc'],
+    brim: ['#ffd6e0', '#ffe9f2', '#ffffff', '#f7e0b5', '#e6d5f0', '#d5f0e6'],
+    ruffles: ['#ffd6e0', '#ffffff', '#ffe4ef', '#e6d5f0', '#d5f0e6', '#fff5cc'],
+    sprinkles: ['#ffd6e0', '#ffe4a8', '#b8f0d5', '#c5d9f5', '#fcc5c5', '#d9c5f5'],
+    glitter: ['#fff5cc', '#ffe4a8', '#ffffff', '#ffd6e0'],
+    bows: ['#ffd6e0', '#ffe9f2', '#ffffff', '#ffe4a8'],
+    inscription: ['#ff85bb', '#ffb3d1', '#ffffff', '#ffe066']
+  },
+  creamy: {
+    cream: ['#f5e6d3', '#fdf3e3', '#ffffff', '#fbe8d5', '#e8d5b7', '#d4c4a8', '#fce9d9', '#e6d0b8'],
+    brim: ['#c9a67c', '#d4a574', '#e8d5b7', '#b8956a', '#f5e6d3'],
+    ruffles: ['#d4a574', '#c9a67c', '#e8d5b7', '#f5e6d3', '#b8956a'],
+    sprinkles: ['#c9a67c', '#d4a574', '#8b6b4a', '#e8d5b7', '#ffffff'],
+    glitter: ['#ffe4a8', '#ffd166', '#ffffff'],
+    bows: ['#c9a67c', '#d4a574', '#8b6b4a', '#ffffff'],
+    inscription: ['#8b6b4a', '#6b4a2e', '#c9a67c']
+  }
+};
+
+/* ============================================================
+   2. ДАННЫЕ — загружаются с API
+   ============================================================ */
+let FLAVORS = [
+  // fallback, если API недоступен
+  { id: 'snickers', name: 'Сникерс', price: 300, color: '#c98b4b', cut: 'cut-snickers' },
+  { id: 'twochoc', name: 'Два шоколада', price: 250, color: '#5a3825', cut: 'cut-twochoc' },
+  { id: 'cherry', name: 'Вишня', price: 350, color: '#a0173a', cut: 'cut-cherry' },
+  { id: 'redvelvet', name: 'Красный бархат', price: 400, color: '#8b1a2b', cut: 'cut-redvelvet' },
+  { id: 'vanilla', name: 'Ваниль-малина', price: 280, color: '#f2d5e0', cut: 'cut-vanilla' }
+];
+let PRICES = {
+  baseTier: 1200, perKg: 900,
+  ruffles: { none: 0, waves: 200, roses: 450, drops: 250, stars: 300, hearts: 380 },
+  decor: { sprinkles: 120, glitter: 150, bows: 250 }
+};
+
+async function loadConfig() {
+  try {
+    const res = await fetch(`${API_URL}/config`, { cache: 'no-store' });
+    if (!res.ok) throw new Error('API error');
+    const data = await res.json();
+    if (data.flavors && data.flavors.length) {
+      FLAVORS = data.flavors.map(f => ({
+        id: String(f.id), name: f.name, price: f.price,
+        color: f.color, cut: f.cut, description: f.description || ''
+      }));
+    }
+    const s = data.settings || {};
+    PRICES = {
+      baseTier: Number(s.price_per_tier) || 1200,
+      perKg: Number(s.price_per_kg) || 900,
+      ruffles: {
+        none: 0,
+        waves: Number(s.price_ruffles_waves) || 200,
+        roses: Number(s.price_ruffles_roses) || 450,
+        drops: Number(s.price_ruffles_drops) || 250,
+        stars: Number(s.price_ruffles_stars) || 300,
+        hearts: Number(s.price_ruffles_hearts) || 380
+      },
+      decor: {
+        sprinkles: Number(s.price_decor_sprinkles) || 120,
+        glitter: Number(s.price_decor_glitter) || 150,
+        bows: Number(s.price_decor_bows) || 250
+      }
+    };
+    if (!FLAVORS.find(f => f.id === state.flavor)) state.flavor = FLAVORS[0].id;
+    API_AVAILABLE = true;
+  } catch (e) {
+    console.warn('API недоступен, используются локальные данные', e);
+    API_AVAILABLE = false;
+  }
+}
+
+const COLOR_NAMES = {
+  '#ffb3d1': 'Розовый', '#ffffff': 'Белый', '#ffd6e0': 'Пудровый', '#f7e0b5': 'Кремовый',
+  '#c9a0dc': 'Лавандовый', '#a8e6cf': 'Мятный', '#ffb3c6': 'Коралловый', '#ffe066': 'Жёлтый',
+  '#ff519f': 'Ярко-розовый', '#ff85bb': 'Розовый', '#ff3d94': 'Малиновый', '#ffd166': 'Золотой',
+  '#6ee7b7': 'Мятный', '#93c5fd': 'Голубой', '#fca5a5': 'Коралл', '#c4b5fd': 'Сиреневый',
+  '#fff2a8': 'Светло-жёлтый', '#c0286e': 'Тёмно-розовый', '#8b6b4a': 'Коричневый',
+  '#6b4a2e': 'Шоколадный', '#c9a67c': 'Карамельный', '#b8956a': 'Кофейный', '#8b5a2b': 'Тёмный шоколад',
+  '#fff0f5': 'Розовый', '#ffe4ef': 'Пудровый', '#fbe8d5': 'Кремовый', '#e6d5f0': 'Лавандовый',
+  '#d5f0e6': 'Мятный', '#ffe0e5': 'Коралловый', '#fff5cc': 'Сливочный', '#ffe4a8': 'Песочный',
+  '#b8f0d5': 'Светло-мятный', '#c5d9f5': 'Светло-голубой', '#fcc5c5': 'Светло-коралловый', '#d9c5f5': 'Светло-сиреневый',
+  '#ffe9f2': 'Очень светлый розовый', '#f5e6d3': 'Бежевый', '#fdf3e3': 'Сливочный',
+  '#e8d5b7': 'Светло-коричневый', '#d4c4a8': 'Песочный', '#fce9d9': 'Персиковый', '#e6d0b8': 'Карамельный',
+  '#d4a574': 'Карамель', '#4a2a18': 'Тёмный шоколад', '#e8c78f': 'Бисквит', '#a0173a': 'Вишнёвый',
+  '#8b1a2b': 'Бордовый', '#f2d5e0': 'Розовый'
+};
+function colorName(hex) { return COLOR_NAMES[hex] || hex; }
+
+const RUFFLE_NAMES = { none: 'Без рюш', waves: 'Волны', roses: 'Розочки', drops: 'Капли', stars: 'Звёздочки', hearts: 'Сердечки' };
+const TIER_NAMES = { 1: '1 ярус', 2: '2 яруса', 3: '3 яруса' };
+const SIZE_NAMES = { small: 'Мелкие', medium: 'Средние', large: 'Крупные' };
+const STYLE_NAMES = {
+  sticks: 'Палочки', dots: 'Шарики', stars: 'Звёздочки',
+  diamonds: 'Ромбики', crosses: 'Крестики',
+  classic: 'Классика', small: 'Маленькие', bowtie: 'Бабочка',
+  low: 'Редко', medium: 'Средне', high: 'Густо',
+  manrope: 'Manrope', playfair: 'Playfair', caveat: 'Рукописный'
+};
+
+const DEFAULT_STATE = {
+  tiers: 2, weight: 1.5, flavor: 'snickers',
+  creamColor: '#ffb3d1',
+  brimColor: '#ff519f',
+  brimSame: false,
+  ruffles: 'none',
+  rufflesColor: '#ff3d94',
+  rufflesSize: 'small',
+  decor: { sprinkles: false, glitter: false, bows: false },
+  sprinklesStyle: 'sticks',
+  sprinklesDensity: 'medium',
+  sprinklesColor: '#ff519f',
+  glitterStyle: 'dots',
+  glitterColor: '#fff2a8',
+  bowsStyle: 'classic',
+  bowsColor: '#ff3d94',
+  inscription: '',
+  inscriptionColor: '#ff3d94',
+  inscriptionFont: 'manrope',
+  palette: 'bright'
+};
+const STORAGE_KEY = 'pro-torty-constructor-v1';
+let state = loadState();
+
+function loadState() {
+  try {
+    const hash = window.location.hash.slice(1);
+    if (hash) {
+      const decoded = JSON.parse(decodeURIComponent(escape(atob(hash))));
+      return { ...structuredClone(DEFAULT_STATE), ...decoded, decor: { ...DEFAULT_STATE.decor, ...(decoded.decor || {}) } };
+    }
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return structuredClone(DEFAULT_STATE);
+    const p = JSON.parse(raw);
+    return { ...structuredClone(DEFAULT_STATE), ...p, decor: { ...DEFAULT_STATE.decor, ...(p.decor || {}) } };
+  } catch { return structuredClone(DEFAULT_STATE); }
+}
+function saveState() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+}
+
+function calcPrice() {
+  let t = state.tiers * PRICES.baseTier + state.weight * PRICES.perKg;
+  const f = FLAVORS.find(f => f.id === state.flavor); if (f) t += f.price;
+  t += PRICES.ruffles[state.ruffles] || 0;
+  for (const k in state.decor) if (state.decor[k]) t += PRICES.decor[k];
+  return Math.round(t);
+}
+
+/* ============================================================
+   3. THREE.JS
+   ============================================================ */
+const container = document.getElementById('canvas-container');
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
+camera.position.set(3.8, 4.8, 7.2);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.setClearColor(0x000000, 0);
+container.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 1.55, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.minDistance = 3;
+controls.maxDistance = 14;
+controls.maxPolarAngle = Math.PI / 2.05;
+controls.enablePan = false;
+controls.update();
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.75));
+const key = new THREE.DirectionalLight(0xffffff, 2.4);
+key.position.set(5, 9, 5);
+key.castShadow = true;
+key.shadow.mapSize.set(1024, 1024);
+key.shadow.camera.near = 0.5; key.shadow.camera.far = 30;
+key.shadow.camera.left = -6; key.shadow.camera.right = 6;
+key.shadow.camera.top = 6; key.shadow.camera.bottom = -6;
+key.shadow.bias = -0.0005;
+scene.add(key);
+const fill = new THREE.DirectionalLight(0xffd9e6, 1.1);
+fill.position.set(-6, 4, -4);
+scene.add(fill);
+const rim = new THREE.PointLight(0xff9ec4, 1.3, 22);
+rim.position.set(0, 5, -6);
+scene.add(rim);
+
+const podium = new THREE.Mesh(
+  new THREE.CylinderGeometry(2.4, 2.55, 0.22, 64),
+  new THREE.MeshStandardMaterial({ color: '#f8eef2', roughness: 0.9 })
+);
+podium.position.y = -0.11;
+podium.receiveShadow = true;
+scene.add(podium);
+
+const podiumRing = new THREE.Mesh(
+  new THREE.TorusGeometry(2.4, 0.018, 8, 64),
+  new THREE.MeshBasicMaterial({ color: '#ffb3d1', transparent: true, opacity: 0.55 })
+);
+podiumRing.rotation.x = Math.PI / 2;
+podiumRing.position.y = 0.005;
+scene.add(podiumRing);
+
+const cakeGroup = new THREE.Group();
+scene.add(cakeGroup);
+
+const tierConfigs = [
+  { radius: 1.0,  height: 0.85, yBase: 0.0 },
+  { radius: 0.78, height: 0.75, yBase: 0.85 },
+  { radius: 0.58, height: 0.65, yBase: 1.60 }
+];
+
+function createInscriptionTexture(text, color, fontKey) {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const W = 1024, H = 256;
+  canvas.width = W; canvas.height = H;
+  ctx.clearRect(0, 0, W, H);
+  const fontFamily = fontKey === 'playfair'
+    ? 'Playfair Display, serif'
+    : fontKey === 'caveat' ? 'Caveat, cursive' : 'Manrope, Arial, sans-serif';
+  const fontWeight = fontKey === 'caveat' ? '700' : '800';
+  let fontSize = 140;
+  const maxWidth = W * 0.9;
+  ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+  let metrics = ctx.measureText(text);
+  if (metrics.width > maxWidth) {
+    fontSize = Math.floor(fontSize * maxWidth / metrics.width);
+    ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+  }
+  ctx.fillStyle = color;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, W / 2, H / 2 + 6);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.needsUpdate = true;
+  tex.anisotropy = 4;
+  return tex;
+}
+
+const colorTransitions = new Map();
+function transitionColor(material, targetHex) {
+  if (!material) return;
+  const target = new THREE.Color(targetHex);
+  colorTransitions.set(material, { target, start: material.color.clone(), t0: performance.now() });
+}
+function stepColorTransitions(now) {
+  colorTransitions.forEach((v, mat) => {
+    const t = Math.min(1, (now - v.t0) / 300);
+    const e = 1 - Math.pow(1 - t, 3);
+    mat.color.copy(v.start).lerp(v.target, e);
+    if (t >= 1) colorTransitions.delete(mat);
+  });
+}
+
+let creamMatCached = null;
+let brimMatCached = null;
+
+function rebuildCake() {
+  while (cakeGroup.children.length > 0) {
+    const c = cakeGroup.children[0];
+    cakeGroup.remove(c);
+    if (c.geometry) c.geometry.dispose?.();
+    if (c.material && c.material !== creamMatCached && c.material !== brimMatCached) {
+      if (c.material.map) c.material.map.dispose?.();
+      c.material.dispose?.();
+    }
+  }
+
+  const creamColor = state.creamColor;
+  const brimColor = state.brimSame ? creamColor : state.brimColor;
+
+  if (!creamMatCached) creamMatCached = new THREE.MeshStandardMaterial({ color: creamColor, roughness: 0.62, metalness: 0.04 });
+  else transitionColor(creamMatCached, creamColor);
+
+  if (!brimMatCached) brimMatCached = new THREE.MeshStandardMaterial({ color: brimColor, roughness: 0.6, metalness: 0.04 });
+  else transitionColor(brimMatCached, brimColor);
+
+  const plateMat = new THREE.MeshStandardMaterial({ color: '#f2e6eb', roughness: 0.35, metalness: 0.3 });
+  const flavor = FLAVORS.find(f => f.id === state.flavor) || FLAVORS[0];
+  const flavorMat = new THREE.MeshStandardMaterial({ color: flavor.color, roughness: 0.85 });
+
+  const plate = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.4, 0.1, 64), plateMat);
+  plate.position.y = 0.05;
+  plate.castShadow = plate.receiveShadow = true;
+  cakeGroup.add(plate);
+
+  const active = tierConfigs.slice(0, state.tiers);
+  const weightScale = 0.9 + (state.weight - 1) * 0.12;
+
+  active.forEach((cfg) => {
+    const yCenter = cfg.yBase + cfg.height / 2;
+    const tier = new THREE.Mesh(
+      new THREE.CylinderGeometry(cfg.radius, cfg.radius * 0.985, cfg.height, 64), creamMatCached
+    );
+    tier.position.y = yCenter;
+    tier.castShadow = tier.receiveShadow = true;
+    cakeGroup.add(tier);
+
+    const rim = new THREE.Mesh(
+      new THREE.CylinderGeometry(cfg.radius * 0.92, cfg.radius * 0.92, 0.05, 64), flavorMat
+    );
+    rim.position.y = cfg.yBase + cfg.height + 0.008;
+    cakeGroup.add(rim);
+
+    const top = new THREE.Mesh(
+      new THREE.CylinderGeometry(cfg.radius * 1.03, cfg.radius * 1.03, 0.08, 64), brimMatCached
+    );
+    top.position.y = cfg.yBase + cfg.height - 0.03;
+    top.castShadow = true;
+    cakeGroup.add(top);
+
+    addRuffles(cfg);
+    if (state.decor.sprinkles) addSprinkles(cfg);
+    if (state.decor.glitter) addGlitter(cfg);
+  });
+
+  if (state.decor.bows) addBows(active);
+  if (state.inscription && active.length > 0) addInscription(active[active.length - 1]);
+
+  cakeGroup.scale.setScalar(weightScale * 0.92);
+  const start = performance.now();
+  (function grow(now) {
+    const t = Math.min(1, (now - start) / 300);
+    const ease = 1 - Math.pow(1 - t, 3);
+    cakeGroup.scale.setScalar(weightScale * (0.92 + 0.08 * ease));
+    if (t < 1) requestAnimationFrame(grow);
+  })(start);
+}
+
+function addRuffles(cfg) {
+  if (state.ruffles === 'none') return;
+  const sizeMap = { small: 1, medium: 1.4, large: 1.8 };
+  const scale = sizeMap[state.rufflesSize] || 1;
+  const count = state.rufflesSize === 'large' ? 12 : state.rufflesSize === 'small' ? 20 : 16;
+  const r = cfg.radius * 1.005;
+  const y = cfg.yBase + cfg.height - 0.08;
+  const mat = new THREE.MeshStandardMaterial({ color: state.rufflesColor, roughness: 0.5, metalness: 0.05 });
+
+  for (let i = 0; i < count; i++) {
+    const a = (i / count) * Math.PI * 2;
+    let m;
+    if (state.ruffles === 'waves') {
+      m = new THREE.Mesh(new THREE.SphereGeometry(0.07 * scale, 12, 12), mat);
+      m.scale.set(1, 0.55, 1);
+    } else if (state.ruffles === 'roses') {
+      m = new THREE.Mesh(new THREE.TorusGeometry(0.07 * scale, 0.026 * scale, 8, 18), mat);
+      m.rotation.x = Math.PI / 2;
+    } else if (state.ruffles === 'drops') {
+      m = new THREE.Mesh(new THREE.ConeGeometry(0.06 * scale, 0.14 * scale, 12), mat);
+      m.rotation.x = Math.PI;
+      m.position.y = -0.04;
+    } else if (state.ruffles === 'stars') {
+      const shape = new THREE.Shape();
+      const spikes = 5, outer = 0.08 * scale, inner = 0.035 * scale;
+      for (let k = 0; k < spikes * 2; k++) {
+        const rad = k % 2 === 0 ? outer : inner;
+        const ang = (k / (spikes * 2)) * Math.PI * 2 - Math.PI / 2;
+        const x = Math.cos(ang) * rad, yy = Math.sin(ang) * rad;
+        if (k === 0) shape.moveTo(x, yy); else shape.lineTo(x, yy);
+      }
+      shape.closePath();
+      const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.03, bevelEnabled: false });
+      m = new THREE.Mesh(geo, mat);
+      m.rotation.x = -Math.PI / 2;
+    } else if (state.ruffles === 'hearts') {
+      const heart = new THREE.Shape();
+      const s = 0.06 * scale;
+      heart.moveTo(0, s * 0.5);
+      heart.bezierCurveTo(s, s * 1.5, s * 2, -s * 0.5, 0, -s * 1.5);
+      heart.bezierCurveTo(-s * 2, -s * 0.5, -s, s * 1.5, 0, s * 0.5);
+      const geo = new THREE.ExtrudeGeometry(heart, { depth: 0.03, bevelEnabled: false });
+      m = new THREE.Mesh(geo, mat);
+      m.rotation.x = -Math.PI / 2;
+    }
+    m.position.x += Math.cos(a) * r;
+    m.position.y += y;
+    m.position.z += Math.sin(a) * r;
+    m.rotation.z = a;
+    m.castShadow = true;
+    cakeGroup.add(m);
+  }
+}
+
+function addSprinkles(cfg) {
+  const densityMap = { low: 22, medium: 45, high: 85 };
+  const count = densityMap[state.sprinklesDensity] || 45;
+  const r = cfg.radius * 0.88;
+  const mat = new THREE.MeshStandardMaterial({ color: state.sprinklesColor, roughness: 0.4 });
+  for (let i = 0; i < count; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const rad = Math.sqrt(Math.random()) * r;
+    let m;
+    if (state.sprinklesStyle === 'sticks') {
+      m = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.012, 0.08), mat);
+    } else if (state.sprinklesStyle === 'dots') {
+      m = new THREE.Mesh(new THREE.SphereGeometry(0.028, 8, 8), mat);
+    } else {
+      m = new THREE.Mesh(new THREE.TetrahedronGeometry(0.035), mat);
+    }
+    m.position.set(Math.cos(a) * rad, cfg.yBase + cfg.height + 0.02, Math.sin(a) * rad);
+    m.rotation.set(Math.random() * 2, Math.random() * 2, Math.random() * 2);
+    cakeGroup.add(m);
+  }
+}
+
+function addGlitter(cfg) {
+  const count = 32;
+  const r = cfg.radius * 1.02;
+  const mat = new THREE.MeshBasicMaterial({ color: state.glitterColor });
+  for (let i = 0; i < count; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const y = cfg.yBase + 0.06 + Math.random() * (cfg.height - 0.12);
+    let m;
+    if (state.glitterStyle === 'dots') {
+      m = new THREE.Mesh(new THREE.SphereGeometry(0.016, 6, 6), mat);
+    } else if (state.glitterStyle === 'diamonds') {
+      m = new THREE.Mesh(new THREE.OctahedronGeometry(0.025, 0), mat);
+    } else {
+      const g1 = new THREE.BoxGeometry(0.04, 0.008, 0.008);
+      const g2 = new THREE.BoxGeometry(0.008, 0.04, 0.008);
+      m = new THREE.Group();
+      m.add(new THREE.Mesh(g1, mat));
+      m.add(new THREE.Mesh(g2, mat));
+    }
+    m.position.set(Math.cos(a) * r, y, Math.sin(a) * r);
+    cakeGroup.add(m);
+  }
+}
+
+function addBows(active) {
+  const top = active[active.length - 1];
+  const y = top.yBase + top.height + 0.02;
+  const mat = new THREE.MeshStandardMaterial({ color: state.bowsColor, roughness: 0.3, metalness: 0.1 });
+  const sizeMap = { classic: 0.07, small: 0.045, bowtie: 0.09 };
+  const size = sizeMap[state.bowsStyle] || 0.07;
+  const count = 4;
+  for (let i = 0; i < count; i++) {
+    const a = (i / count) * Math.PI * 2 + Math.PI / 4;
+    const x = Math.cos(a) * top.radius * 0.72;
+    const z = Math.sin(a) * top.radius * 0.72;
+    let bow;
+    if (state.bowsStyle === 'bowtie') {
+      bow = new THREE.Group();
+      const left = new THREE.Mesh(new THREE.ConeGeometry(size * 0.7, size * 1.4, 4), mat);
+      left.rotation.z = Math.PI / 2;
+      left.position.x = -size * 0.8;
+      const right = new THREE.Mesh(new THREE.ConeGeometry(size * 0.7, size * 1.4, 4), mat);
+      right.rotation.z = -Math.PI / 2;
+      right.position.x = size * 0.8;
+      const center = new THREE.Mesh(new THREE.SphereGeometry(size * 0.35, 8, 8), mat);
+      bow.add(left, right, center);
+    } else {
+      bow = new THREE.Mesh(new THREE.TorusGeometry(size, size * 0.4, 8, 18), mat);
+    }
+    bow.position.set(x, y, z);
+    bow.rotation.x = Math.PI / 2;
+    bow.rotation.z = a;
+    cakeGroup.add(bow);
+  }
+}
+
+function addInscription(top) {
+  const text = (state.inscription || '').slice(0, 20).trim();
+  if (!text) return;
+  const tex = createInscriptionTexture(text, state.inscriptionColor, state.inscriptionFont);
+  const planeW = top.radius * 2 * 0.92;
+  const planeH = planeW * 0.25;
+  const geo = new THREE.PlaneGeometry(planeW, planeH);
+  const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.set(0, top.yBase + top.height + 0.045, 0);
+  cakeGroup.add(mesh);
+}
+
+/* ============================================================
+   4. UI
+   ============================================================ */
+const pages = document.querySelectorAll('.page');
+const dots = document.querySelectorAll('.step-dot');
+const btnPrev = document.getElementById('btnPrev');
+const btnNext = document.getElementById('btnNext');
+const priceWrap = document.getElementById('current-price');
+const summaryEl = document.getElementById('summary');
+const progressFill = document.getElementById('progress-fill');
+const flavorGrid = document.getElementById('flavorGrid');
+const inscriptionInput = document.getElementById('inscription');
+let currentPage = 0;
+
+function renderFlavors() {
+  flavorGrid.innerHTML = FLAVORS.map(f => `
+    <div class="flavor-card ${state.flavor === f.id ? 'selected' : ''}" data-value="${f.id}">
+      <div class="badge">✓</div>
+      <div class="cut ${f.cut}"></div>
+      <div class="name">${f.name}</div>
+      <div class="price">+${f.price} ₽</div>
+    </div>
+  `).join('');
+  flavorGrid.querySelectorAll('.flavor-card').forEach(card => {
+    card.addEventListener('click', () => {
+      state.flavor = card.dataset.value;
+      saveState(); renderFlavors(); refreshAll();
+    });
+  });
+}
+
+function renderColorRow(groupName) {
+  const el = document.querySelector(`[data-group="${groupName}"]`);
+  if (!el) return;
+  const palette = PALETTES[state.palette] || PALETTES.bright;
+  let colors;
+  if (groupName === 'creamColor') colors = palette.cream;
+  else if (groupName === 'brimColor') colors = palette.brim;
+  else if (groupName === 'rufflesColor') colors = palette.ruffles;
+  else if (groupName === 'sprinklesColor') colors = palette.sprinkles;
+  else if (groupName === 'glitterColor') colors = palette.glitter;
+  else if (groupName === 'bowsColor') colors = palette.bows;
+  else if (groupName === 'inscriptionColor') colors = palette.inscription;
+  else colors = palette.cream;
+
+  const current = state[groupName];
+  const list = colors.includes(current) ? colors : [current, ...colors];
+
+  el.innerHTML = list.map(c => `
+    <div class="color-swatch ${current === c ? 'selected' : ''}" data-value="${c}" style="background:${c}" title="${colorName(c)}"></div>
+  `).join('') + `
+    <div class="color-add" title="Свой цвет">
+      +
+      <input type="color" value="${current}" data-custom="${groupName}">
+    </div>
+  `;
+
+  el.querySelectorAll('.color-swatch').forEach(sw => {
+    sw.addEventListener('click', () => {
+      state[groupName] = sw.dataset.value;
+      if (groupName === 'creamColor' && state.brimSame) state.brimColor = state.creamColor;
+      saveState(); refreshAll();
+      renderColorRow(groupName);
+      if (groupName === 'creamColor' && state.brimSame) renderColorRow('brimColor');
+    });
+  });
+  const inp = el.querySelector('input[type="color"]');
+  if (inp) {
+    inp.addEventListener('input', (e) => {
+      state[groupName] = e.target.value;
+      if (groupName === 'creamColor' && state.brimSame) state.brimColor = state.creamColor;
+      saveState(); refreshAll();
+      renderColorRow(groupName);
+      if (groupName === 'creamColor' && state.brimSame) renderColorRow('brimColor');
+    });
+  }
+}
+
+function bindOptGroup(groupName) {
+  const group = document.querySelector(`[data-group="${groupName}"]`);
+  if (!group) return;
+  group.querySelectorAll('.opt').forEach(opt => {
+    if (opt.dataset.value === String(state[groupName])) opt.classList.add('selected');
+    else opt.classList.remove('selected');
+    opt.addEventListener('click', () => {
+      group.querySelectorAll('.opt').forEach(o => o.classList.remove('selected'));
+      opt.classList.add('selected');
+      const v = opt.dataset.value;
+      if (groupName === 'weight') state.weight = parseFloat(v);
+      else if (groupName === 'tiers') state.tiers = parseInt(v, 10);
+      else state[groupName] = v;
+      if (groupName === 'ruffles') updateRuffleFields();
+      saveState(); refreshAll();
+    });
+  });
+}
+
+function bindAllOptGroups() {
+  document.querySelectorAll('.opt-grid').forEach(g => {
+    const name = g.dataset.group;
+    if (!name || name === 'decor' || name === 'flavor') return;
+    bindOptGroup(name);
+  });
+}
+
+function updateRuffleFields() {
+  const has = state.ruffles !== 'none';
+  document.getElementById('ruflesColorField').style.display = has ? 'block' : 'none';
+  document.getElementById('ruflesSizeField').style.display = has ? 'block' : 'none';
+}
+
+function updateDecorFields() {
+  document.getElementById('sprinklesStyleField').style.display = state.decor.sprinkles ? 'block' : 'none';
+  document.getElementById('sprinklesColorField').style.display = state.decor.sprinkles ? 'block' : 'none';
+  document.getElementById('glitterStyleField').style.display = state.decor.glitter ? 'block' : 'none';
+  document.getElementById('glitterColorField').style.display = state.decor.glitter ? 'block' : 'none';
+  document.getElementById('bowsStyleField').style.display = state.decor.bows ? 'block' : 'none';
+  document.getElementById('bowsColorField').style.display = state.decor.bows ? 'block' : 'none';
+}
+
+document.querySelectorAll('[data-group="decor"] input').forEach(cb => {
+  const v = cb.dataset.value;
+  if (state.decor[v]) cb.checked = true;
+  cb.closest('.check-item').classList.toggle('checked', cb.checked);
+  cb.addEventListener('change', () => {
+    state.decor[v] = cb.checked;
+    cb.closest('.check-item').classList.toggle('checked', cb.checked);
+    updateDecorFields();
+    saveState(); refreshAll();
+  });
+});
+
+function updateInscriptionFields() {
+  const has = !!(state.inscription && state.inscription.trim());
+  document.getElementById('inscriptionColorField').style.display = has ? 'block' : 'none';
+  document.getElementById('inscriptionFontField').style.display = has ? 'block' : 'none';
+  if (has) renderColorRow('inscriptionColor');
+}
+inscriptionInput.value = state.inscription || '';
+inscriptionInput.addEventListener('input', e => {
+  state.inscription = e.target.value;
+  updateInscriptionFields();
+  saveState(); refreshAll();
+});
+
+document.querySelectorAll('[data-palette]').forEach(btn => {
+  if (btn.dataset.palette === state.palette) btn.classList.add('active');
+  else btn.classList.remove('active');
+  btn.addEventListener('click', () => {
+    state.palette = btn.dataset.palette;
+    document.querySelectorAll('[data-palette]').forEach(b => b.classList.toggle('active', b === btn));
+    applyPaletteDefaults();
+    saveState(); refreshAll();
+    renderAllColors();
+  });
+});
+
+function applyPaletteDefaults() {
+  const p = PALETTES[state.palette];
+  if (!p) return;
+  state.creamColor = p.cream[0];
+  state.brimColor = p.brim[0];
+  state.brimSame = false;
+  state.rufflesColor = p.ruffles[0];
+  state.sprinklesColor = p.sprinkles[0];
+  state.glitterColor = p.glitter[0];
+  state.bowsColor = p.bows[0];
+  state.inscriptionColor = p.inscription[0];
+}
+
+document.getElementById('btnRandomAll').addEventListener('click', () => {
+  const p = PALETTES[state.palette];
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+  state.creamColor = pick(p.cream);
+  state.brimColor = pick(p.brim);
+  state.brimSame = false;
+  state.rufflesColor = pick(p.ruffles);
+  state.sprinklesColor = pick(p.sprinkles);
+  state.glitterColor = pick(p.glitter);
+  state.bowsColor = pick(p.bows);
+  state.inscriptionColor = pick(p.inscription);
+  saveState(); refreshAll(); renderAllColors();
+});
+
+document.querySelectorAll('[data-copy-to]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const to = btn.dataset.copyTo;
+    const from = btn.dataset.copyFrom;
+    state[to] = state[from];
+    if (to === 'brimColor') state.brimSame = false;
+    saveState(); refreshAll();
+    renderColorRow(to);
+  });
+});
+
+function renderAllColors() {
+  renderColorRow('creamColor');
+  renderColorRow('brimColor');
+  renderColorRow('rufflesColor');
+  renderColorRow('sprinklesColor');
+  renderColorRow('glitterColor');
+  renderColorRow('bowsColor');
+  renderColorRow('inscriptionColor');
+}
+
+function updatePrice() {
+  const p = calcPrice();
+  priceWrap.innerHTML = `Текущая цена<strong>${p.toLocaleString('ru-RU')} ₽</strong>`;
+  priceWrap.classList.remove('pulse');
+  void priceWrap.offsetWidth;
+  priceWrap.classList.add('pulse');
+}
+
+function refreshAll() {
+  rebuildCake();
+  updatePrice();
+  if (currentPage === 4) renderSummary();
+}
+
+function renderSummary() {
+  const f = FLAVORS.find(x => x.id === state.flavor);
+  const decorList = [];
+  if (state.decor.sprinkles) decorList.push(`Посыпка (${STYLE_NAMES[state.sprinklesStyle]}, ${STYLE_NAMES[state.sprinklesDensity]}) <span class="dot" style="background:${state.sprinklesColor}"></span>`);
+  if (state.decor.glitter) decorList.push(`Блёстки (${STYLE_NAMES[state.glitterStyle]}) <span class="dot" style="background:${state.glitterColor}"></span>`);
+  if (state.decor.bows) decorList.push(`Бантики (${STYLE_NAMES[state.bowsStyle]}) <span class="dot" style="background:${state.bowsColor}"></span>`);
+
+  const brimColor = state.brimSame ? state.creamColor : state.brimColor;
+
+  const rows = [
+    ['Форма', TIER_NAMES[state.tiers]],
+    ['Вес', state.weight + ' кг'],
+    ['Вкус', f ? f.name : '—'],
+    ['Покрытие', `${colorName(state.creamColor)} <span class="dot" style="background:${state.creamColor}"></span>`],
+    ['Бортики', `${colorName(brimColor)} <span class="dot" style="background:${brimColor}"></span>`],
+    ['Рюши', state.ruffles === 'none' ? 'Без рюш' : `${RUFFLE_NAMES[state.ruffles]}, ${SIZE_NAMES[state.rufflesSize]} <span class="dot" style="background:${state.rufflesColor}"></span>`],
+    ['Декор', decorList.length ? decorList.join('<br>') : 'Без декора'],
+    ['Надпись', state.inscription ? `«${state.inscription}» (${STYLE_NAMES[state.inscriptionFont]}) <span class="dot" style="background:${state.inscriptionColor}"></span>` : 'Нет']
+  ];
+  summaryEl.innerHTML = `
+    <div class="summary-card">
+      ${rows.map(([k, v]) => `<div class="summary-row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}
+    </div>
+    <div class="summary-total">
+      <span class="lbl">Итого</span>
+      <span class="sum">${calcPrice().toLocaleString('ru-RU')} ₽</span>
+    </div>
+    <button class="btn btn-next" style="width:100%;justify-content:center" id="btnOrder">Оформить заказ</button>
+  `;
+  document.getElementById('btnOrder').addEventListener('click', orderSubmit);
+}
+
+async function orderSubmit() {
+  const tg = window.Telegram?.WebApp;
+  const user = tg?.initDataUnsafe?.user;
+  if (!user) {
+    alert('Откройте конструктор через Telegram-бота, чтобы оформить заказ.');
+    return;
+  }
+  if (!API_AVAILABLE) {
+    alert('Сервер заказов недоступен. Попробуйте позже.');
+    return;
+  }
+  const btn = document.getElementById('btnOrder');
+  btn.disabled = true;
+  btn.textContent = 'Отправка...';
+  try {
+    const res = await fetch(`${API_URL}/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_id: user.id,
+        username: user.username || '',
+        config: state,
+        total: calcPrice(),
+        comment: state.inscription || ''
+      })
+    });
+    if (!res.ok) throw new Error('server error');
+    const data = await res.json();
+    if (tg) {
+      try { tg.sendData(JSON.stringify({ action: 'order_created', id: data.id })); } catch {}
+      tg.close();
+    }
+    btn.textContent = 'Заказ оформлен ✓';
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = 'Оформить заказ';
+    alert('Не удалось отправить заказ: ' + e.message);
+  }
+}
+
+function goToPage(idx) {
+  currentPage = Math.max(0, Math.min(4, idx));
+  pages.forEach((p, i) => p.classList.toggle('active', i === currentPage));
+  dots.forEach((d, i) => {
+    d.classList.toggle('active', i === currentPage);
+    d.classList.toggle('done', i < currentPage);
+  });
+  btnPrev.disabled = currentPage === 0;
+  btnNext.textContent = currentPage === 4 ? 'Оформить заказ' : 'Далее →';
+  progressFill.style.width = ((currentPage) / 4 * 100) + '%';
+  if (currentPage === 4) renderSummary();
+  document.getElementById('pages').scrollTop = 0;
+}
+btnPrev.addEventListener('click', () => goToPage(currentPage - 1));
+btnNext.addEventListener('click', () => {
+  if (currentPage === 4) { orderSubmit(); return; }
+  goToPage(currentPage + 1);
+});
+dots.forEach(d => d.addEventListener('click', () => goToPage(parseInt(d.dataset.step, 10))));
+
+document.getElementById('btnReset').addEventListener('click', () => {
+  if (!confirm('Сбросить все настройки?')) return;
+  state = structuredClone(DEFAULT_STATE);
+  saveState();
+  renderFlavors();
+  renderAllColors();
+  bindAllOptGroups();
+  updateRuffleFields();
+  updateDecorFields();
+  updateInscriptionFields();
+  inscriptionInput.value = '';
+  refreshAll();
+  goToPage(0);
+});
+
+document.getElementById('btnSnapshot').addEventListener('click', () => {
+  try {
+    const url = renderer.domElement.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `cake-${Date.now()}.png`;
+    a.click();
+  } catch { alert('Не удалось сохранить превью'); }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && currentPage > 0) goToPage(currentPage - 1);
+  if (e.key === 'Enter' && currentPage === 4 && document.activeElement.tagName !== 'INPUT') orderSubmit();
+});
+
+function resize() {
+  const w = container.clientWidth, h = container.clientHeight;
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  stepColorTransitions(performance.now());
+  renderer.render(scene, camera);
+}
+
+(async () => {
+  await loadConfig();
+  renderFlavors();
+  renderAllColors();
+  bindAllOptGroups();
+  updateRuffleFields();
+  updateDecorFields();
+  updateInscriptionFields();
+  resize();
+  rebuildCake();
+  updatePrice();
+  goToPage(0);
+  animate();
+})();
+</script>
 </body>
 </html>
